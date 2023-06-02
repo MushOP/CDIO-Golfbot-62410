@@ -67,6 +67,44 @@ def detect_robot(frame):
 
     return robot
 
+# Function to detect the green rectangle (robot)
+def detect_pink(frame):
+    # Convert the frame to the HSV color space
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    # Define the HSV values for the green rectangle
+    hsv_values = {'hmin': 140, 'smin': 100, 'vmin': 100, 'hmax': 180, 'smax': 255, 'vmax': 255}
+    lower_green = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
+    upper_green = np.array([hsv_values['hmax'], hsv_values['smax'], hsv_values['vmax']])
+
+    # Threshold the HSV image to get only green colors
+    mask_green = cv2.inRange(hsv, lower_green, upper_green)
+
+    # Apply morphological operations to remove noise
+    kernel = np.ones((5, 5), np.uint8)
+    mask_green = cv2.morphologyEx(mask_green, cv2.MORPH_OPEN, kernel)
+
+    # Find contours of green regions
+    contours_green, _ = cv2.findContours(mask_green, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Find the robot (green rectangle)
+    robot = None
+    largest_contour = None
+    max_area = 0
+    for contour in contours_green:
+        area = cv2.contourArea(contour)
+        if area > max_area:
+            max_area = area
+            largest_contour = contour
+
+    if largest_contour is not None:
+        rect = cv2.minAreaRect(largest_contour)
+        box = cv2.boxPoints(rect)
+        box = np.int0(box)
+        cv2.drawContours(frame, [box], 0, (0, 255, 0), 3)
+        center = np.mean(box, axis=0)
+        return center
+
 def detect_white_balls(frame):
     # Convert the frame to the HSV color space
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -115,6 +153,30 @@ def detect_white_balls(frame):
 
     return frame, coordinates, graph
 
+def calculate_angle(green_robot, pink_robot, ball_center):
+    if green_robot is not None and pink_robot is not None and ball_center is not None:
+        green_center = green_robot
+        pink_center = pink_robot
+
+        # Calculate the angle between the green robot and the ball center
+        angle1 = math.atan2(ball_center[1] - green_center[1], ball_center[0] - green_center[0])
+
+        # Calculate the angle between the green robot and the pink robot
+        angle2 = math.atan2(green_center[1] - pink_center[1], green_center[0] - pink_center[0])
+
+        # Calculate the angle between the green robot's front and the line connecting it to the ball center
+        angle_degrees = math.degrees(angle1 - angle2)
+
+        # Adjust the angle to be between -180 and 180 degrees
+        if angle_degrees > 180:
+            angle_degrees -= 360
+        elif angle_degrees < -180:
+            angle_degrees += 360
+
+        return -angle_degrees  # Reverse the angle when the ball is in front of the green robot
+    else:
+        return None
+        
 # Loop over frames from the video stream
 while True:
     # Read a frame from the video stream
@@ -126,6 +188,8 @@ while True:
     # Detect the white balls and get valid contour coordinates and graph
     frame, white_ball_coords, graph = detect_white_balls(frame)
 
+    pink = detect_pink(frame)
+    
     # Find the starting point on the table tennis table
     start = robot[:2] if robot is not None else None
 
@@ -133,16 +197,16 @@ while True:
     if start is None:
         print("Starting point not found. Adjust camera position or choose a different starting point.")
         break
-
+    
     # Find the shortest path to the closest ball using Dijkstra's algorithm
     closest_ball = closest_node(start, white_ball_coords)
 
     # Draw a line from the starting point to the closest ball
     if closest_ball is not None:
         cv2.line(frame, start, closest_ball, (255, 255, 0), 2)
-
-
-    # Draw lines from the robot to each white ball
+        angle = calculate_angle(robot, pink, closest_ball)
+        cv2.putText(frame, "Angle: {:.2f}".format(angle), (start), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)    # Draw lines from the robot to each white ball
+    
     #for ball_coord in white_ball_coords:
         #cv2.line(frame, start, ball_coord, (255, 0, 0), 2)
     #print("****", closest_ball)
