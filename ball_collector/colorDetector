@@ -1,0 +1,36 @@
+import cv2
+import numpy as np
+
+# Create a VideoCapture object to read from the camera
+cap = cv2.VideoCapture(0)
+
+# Callback function for mouse events
+def mouse_callback(event, x, y, flags, param):
+    if event == cv2.EVENT_LBUTTONDOWN:
+        # Get the HSV value at the clicked pixel
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        hsv_value = hsv[y, x]
+        print("HSV value at ({}, {}): {}".format(x, y, hsv_value))
+
+# Register the mouse callback function
+cv2.namedWindow('Frame')
+cv2.setMouseCallback('Frame', mouse_callback)
+
+# Loop over frames from the video stream
+while True:
+    # Read a frame from the video stream
+    ret, frame = cap.read()
+
+    # Display the frame
+    cv2.imshow('Frame', frame)
+
+    # Wait
+    key = cv2.waitKey(1) & 0xFF
+
+    # If the 'q' key is pressed, break from the loop
+    if key == ord('q'):
+        break
+
+# Release the VideoCapture object and close all windows
+cap.release()
+cv2.destroyAllWindows()
