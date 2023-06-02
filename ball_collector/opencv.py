@@ -7,35 +7,23 @@ import math
 cap = cv2.VideoCapture(0)
 MAX_DISTANCE = 1000000
 
-# Function to calculate the Euclidean distance between two points
-def calculate_distance(point1, point2):
-    x1, y1 = point1
-    x2, y2 = point2
-    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+import numpy as np
 
-# Function to find the shortest path using Dijkstra's algorithm
-def dijkstra(graph, start):
-    distances = {node: math.inf for node in graph}
-    distances[start] = 0
-    queue = [(0, start)]
+def closest_node(node, nodes):
+    pt = []
+    dist = 9999999
 
-    while queue:
-        current_distance, current_node = heapq.heappop(queue)
+    for n in nodes:
+        if distance(node, n) <= dist:
+            dist = distance(node, n)
+            pt = n
 
-        if current_distance > distances[current_node]:
-            continue
+    return pt
 
-        if current_node not in graph:
-            continue
-
-        for neighbor, weight in graph[current_node].items():
-            distance = current_distance + weight
-
-            if distance < distances[neighbor]:
-                distances[neighbor] = distance
-                heapq.heappush(queue, (distance, neighbor))
-
-    return distances
+def distance(pt1, pt2):
+    pt1 = np.array((pt1[0], pt1[1]))
+    pt2 = np.array((pt2[0], pt2[1]))
+    return np.linalg.norm(pt1 - pt2)
 
 # Function to detect the green rectangle (robot)
 def detect_robot(frame):
@@ -109,7 +97,7 @@ def detect_white_balls(frame):
     # Draw bounding boxes around valid contours
     for contour in valid_contours:
         x, y, w, h = cv2.boundingRect(contour)
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 2)
 
     # Extract valid contour coordinates
     coordinates = [(cv2.boundingRect(contour)[:2]) for contour in valid_contours]
@@ -147,13 +135,19 @@ while True:
         break
 
     # Find the shortest path to the closest ball using Dijkstra's algorithm
-    distances = dijkstra(graph, start)
-    closest_ball = min(distances, key=distances.get)
+    closest_ball = closest_node(start, white_ball_coords)
+
+    # Draw a line from the starting point to the closest ball
+    if closest_ball is not None:
+        cv2.line(frame, start, closest_ball, (255, 255, 0), 2)
+
 
     # Draw lines from the robot to each white ball
-    for ball_coord in white_ball_coords:
-        cv2.line(frame, start, ball_coord, (255, 0, 0), 2)
-
+    #for ball_coord in white_ball_coords:
+        #cv2.line(frame, start, ball_coord, (255, 0, 0), 2)
+    #print("****", closest_ball)
+    #print("****", white_ball_coords)
+    cv2.line(frame, start, closest_ball, (255, 255, 0), 2)
     # Display the original frame with bounding boxes and lines
     cv2.imshow('Frame', frame)
 
