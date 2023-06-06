@@ -181,31 +181,7 @@ def calculate_angle(green_robot, pink_robot, ball_center):
 
 @app.route('/', methods=['GET'])
 def get_angle():
-    # Read a frame from the video stream
-    ret, frame = cap.read()
-
-    # Detect the green rectangle (robot)
-    robot = detect_robot(frame)
-
-    # Detect the pink rectangle
-    pink = detect_pink(frame)
-
-    # Detect the white balls and get valid contour coordinates and graph
-    frame, white_ball_coords, graph = detect_white_balls(frame)
-
-    # Find the starting point on the table tennis table
-    start = robot[:2] if robot is not None else None
-
-    if start is None:
-        return jsonify({'angle': None})
-
-    # Find the closest ball using Dijkstra's algorithm
-    closest_ball = closest_node(start, white_ball_coords)
-
-    # Calculate the angle
-    angle = calculate_angle(robot, pink, closest_ball)
-
-    return jsonify({'angle': angle})
+    return jsonify({'angle': robo_angle})
 
 # Function to run the Flask app in a separate thread
 def run_flask_app():
@@ -214,6 +190,8 @@ def run_flask_app():
 # Start the Flask app on a separate thread
 flask_thread = threading.Thread(target=run_flask_app)
 flask_thread.start()
+
+robo_angle = 0
 
 # Loop over frames from the video stream
 while True:
@@ -242,7 +220,9 @@ while True:
     # Draw a line from the starting point to the closest ball
     if closest_ball is not None:
         cv2.line(frame, start, closest_ball, (255, 255, 0), 2)
-        angle = calculate_angle(robot, pink, closest_ball)
+        global robo_angle
+
+        robo_angle = angle = calculate_angle(robot, pink, closest_ball)
         cv2.putText(frame, "Angle: {:.2f}".format(angle), (start), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)    # Draw lines from the robot to each white ball
         #cv2.putText(frame, "Distance: {:.2f}".format(distance(start, closest_ball)), (start), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)    # Draw lines from the robot to each white ball
     #for ball_coord in white_ball_coords:
