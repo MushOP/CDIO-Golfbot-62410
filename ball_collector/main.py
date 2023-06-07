@@ -6,27 +6,16 @@ from pybricks.parameters import Port, Stop, Direction, Button, Color
 from pybricks.tools import wait, StopWatch, DataLog
 from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
-
-# This program requires LEGO EV3 MicroPython v2.0 or higher.o
-# Click "Open user guide" on the EV3 extension tab for more information.
-
+import json
 import socket
 import time
-# Set the IP address and port number for the server
-HOST = '172.20.10.13'  # Replace with the IP address of your computer
-PORT = 1234
 
-# Create a new socket object
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# This program requires LEGO EV3 MicroPython v2.0 or higher.
+# Click "Open user guide" on the EV3 extension tab for more information.
 
-# Connect to the server
-s.connect((HOST, PORT))
+SERVER_IP = '172.20.10.4'  # Replace with the IP address of your server
+SERVER_PORT = 5001
 
-# Send data to the server
-s.sendall('Starting EV3!'.encode())
-
-timer = 2000000000
-start_time = time.time()
 # Create a DriveBase object to control the motors
 ev3 = EV3Brick()
 left_wheel = Motor(Port.B)
@@ -34,23 +23,59 @@ right_wheel = Motor(Port.D)
 ultra = UltrasonicSensor(Port.S4)
 front_arm = Motor(Port.C)
 back_arm = Motor(Port.A)
-robot = DriveBase(left_wheel,right_wheel,wheel_diameter = 55.5,axle_track = 104)
-
+robot = DriveBase(left_wheel, right_wheel, wheel_diameter=55.5, axle_track=104)
 
 # Write your program here.
 ev3.speaker.beep()
-# Loop over the commands
+
 while True:
-    if(time.time() - start_time) > timer:
-        print("Timer expired")
-        break
-    # Receive a command
-    command = s.recv(1024)
-    print(command)
+    # Create a socket object
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
-    # Decode the command from bytes to string
-    command = command.decode('utf-8')
+    # Connect to the server
+    sock.connect((SERVER_IP, SERVER_PORT))
     
+    # Send an HTTP request to the server
+    request = "GET / HTTP/1.1\r\nHost: {}\r\n\r\n".format(SERVER_IP)
+    sock.send(request.encode())
+    
+    response = ""
+    while True:
+        data = sock.recv(1024)
+        #print("data = ", data)
+        if not data:
+            break
+        response += data.decode()
+
+    header, _, body = response.partition("\r\n\r\n")
+    command = json.loads(body)  # Moved JSON decoding here
+    
+    # Assuming the response is in JSON format, you can parse it
+    # json_data = json.loads(response)
+    # print("Parsed JSON:", json_data)
+    if 'left' in command:
+        robot.drive(0, 50)
+        # print('left-angle: ', command['left'])
+    elif 'right' in command:
+        # print('right-angle: ', command['right'])
+        robot.drive(0, -50)
+    elif 'onpoint' in command:
+        print("I'm at around angle 0", command['onpoint'])
+        #robot.stop()
+        robot.drive(100, 0)
+        left_arm = Motor(Port.C, Direction.COUNTERCLOCKWISE, [12, 36])
+        left_arm.control.limits(speed=150, acceleration=120)
+        left_arm.run(150)
+    else:
+        print('Something went wrong: ', command['idk'])
+    
+    # Close the socket connection
+    sock.close()
+    
+    # Delay before making the next request
+    #time.sleep(1)
+    
+    """
     # Parse the command and set the motor speeds
     if command == 'forward':
         robot.drive(200, 0)
@@ -86,7 +111,4 @@ while True:
         s.sendall('Turning'.encode())
         wait(4)
         robot.turn(250)
-
-# Clean up
-robot.stop()
-s.close()
+    """
