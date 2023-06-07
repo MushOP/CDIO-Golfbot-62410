@@ -111,7 +111,7 @@ def detect_white_balls(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Define the range of white color in HSV
-    lower_white = np.array([0, 0, 200])
+    lower_white = np.array([0, 0, 255])
     upper_white = np.array([180, 20, 255])
 
     # Threshold the HSV image to get only white colors
@@ -158,18 +158,22 @@ def detect_red(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Define the lower and upper red color ranges in HSV
+    hsv_values = {'hmin': 0, 'smin': 150, 'vmin': 175, 'hmax': 10, 'smax': 255, 'vmax': 255}
+    """
     lower_red1 = np.array([0, 70, 50])
     upper_red1 = np.array([10, 255, 255])
     lower_red2 = np.array([170, 70, 50])
     upper_red2 = np.array([180, 255, 255])
-
+    """
+    lower_red = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
+    upper_red = np.array([hsv_values['hmax'], hsv_values['smax'], hsv_values['vmax']])
     # Threshold the HSV image to get only the red color
-    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+    #mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+    #mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
 
     # Combine the masks
-    mask = cv2.bitwise_or(mask1, mask2)
-
+    #mask = cv2.bitwise_or(mask1, mask2)
+    mask = cv2.inRange(hsv, lower_red, upper_red)
     # Apply morphological operations to remove noise from the mask
     kernel = np.ones((5, 5), np.uint8)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)  # Changed to MORPH_CLOSE
@@ -209,7 +213,14 @@ def calculate_angle(green_robot, pink_robot, ball_center):
 
 @app.route('/', methods=['GET'])
 def get_angle():
-    return jsonify({'angle': robo_angle})
+    if robo_angle >= -7 and robo_angle <= 7:
+        return jsonify({'onpoint': robo_angle})
+    elif robo_angle < 0:
+        return jsonify({'left': robo_angle})
+    elif robo_angle > 0:
+        return jsonify({'right': robo_angle})
+    else:
+        return jsonify({'idk': robo_angle})
 
 # Function to run the Flask app in a separate thread
 def run_flask_app():
@@ -252,6 +263,7 @@ while True:
             cv2.line(frame, start, closest_ball, (255, 255, 0), 2)
 
             robo_angle = angle = calculate_angle(robot, pink, closest_ball)
+            
             if angle is not None:
                 cv2.putText(frame, "Angle: {:.2f}".format(angle), (start), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)  # Draw lines from the robot to each white ball
             #cv2.putText(frame, "Distance: {:.2f}".format(distance(start, closest_ball)), (start), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)    # Draw lines from the robot to each white ball
