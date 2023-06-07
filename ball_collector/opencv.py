@@ -154,6 +154,34 @@ def detect_white_balls(frame):
 
     return frame, coordinates, graph
 
+def detect_red(frame):
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    # Define the lower and upper red color ranges in HSV
+    lower_red1 = np.array([0, 70, 50])
+    upper_red1 = np.array([10, 255, 255])
+    lower_red2 = np.array([170, 70, 50])
+    upper_red2 = np.array([180, 255, 255])
+
+    # Threshold the HSV image to get only the red color
+    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+
+    # Combine the masks
+    mask = cv2.bitwise_or(mask1, mask2)
+
+    # Apply morphological operations to remove noise from the mask
+    kernel = np.ones((5, 5), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)  # Changed to MORPH_CLOSE
+
+    # Find contours of the red regions
+    contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)  # Changed to RETR_LIST
+
+    # Draw contours on the frame
+    cv2.drawContours(frame, contours, -1, (0, 255, 0), 2)
+
+    return frame
+
 def calculate_angle(green_robot, pink_robot, ball_center):
     if green_robot is not None and pink_robot is not None and ball_center is not None:
         green_center = green_robot
@@ -191,7 +219,7 @@ def run_flask_app():
 flask_thread = threading.Thread(target=run_flask_app)
 flask_thread.start()
 
-robo_angle = 0
+global robo_angle
 
 # Loop over frames from the video stream
 while True:
@@ -205,6 +233,8 @@ while True:
     frame, white_ball_coords, graph = detect_white_balls(frame)
 
     pink = detect_pink(frame)
+
+    red = detect_red(frame)
     
     # Find the starting point on the table tennis table
     start = robot[:2] if robot is not None else None
@@ -212,25 +242,25 @@ while True:
     # Check if the starting point was found
     if start is None:
         print("Starting point not found. Adjust camera position or choose a different starting point.")
-        break
+    else:
     
-    # Find the shortest path to the closest ball using Dijkstra's algorithm
-    closest_ball = closest_node(start, white_ball_coords)
+        # Find the shortest path to the closest ball using Dijkstra's algorithm
+        closest_ball = closest_node(start, white_ball_coords)
 
-    # Draw a line from the starting point to the closest ball
-    if closest_ball is not None:
+        # Draw a line from the starting point to the closest ball
+        if (closest_ball or start or frame) is not None:
+            cv2.line(frame, start, closest_ball, (255, 255, 0), 2)
+
+            robo_angle = angle = calculate_angle(robot, pink, closest_ball)
+            if angle is not None:
+                cv2.putText(frame, "Angle: {:.2f}".format(angle), (start), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)  # Draw lines from the robot to each white ball
+            #cv2.putText(frame, "Distance: {:.2f}".format(distance(start, closest_ball)), (start), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)    # Draw lines from the robot to each white ball
+        #for ball_coord in white_ball_coords:
+            #cv2.line(frame, start, ball_coord, (255, 0, 0), 2)
+        #print("****", closest_ball)
+        #print("****", white_ball_coords)
         cv2.line(frame, start, closest_ball, (255, 255, 0), 2)
-        global robo_angle
-
-        robo_angle = angle = calculate_angle(robot, pink, closest_ball)
-        cv2.putText(frame, "Angle: {:.2f}".format(angle), (start), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)    # Draw lines from the robot to each white ball
-        #cv2.putText(frame, "Distance: {:.2f}".format(distance(start, closest_ball)), (start), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)    # Draw lines from the robot to each white ball
-    #for ball_coord in white_ball_coords:
-        #cv2.line(frame, start, ball_coord, (255, 0, 0), 2)
-    #print("****", closest_ball)
-    #print("****", white_ball_coords)
-    cv2.line(frame, start, closest_ball, (255, 255, 0), 2)
-    # Display the original frame with bounding boxes and lines
+        # Display the original frame with bounding boxes and lines
     cv2.imshow('Frame', frame)
 
     # Wait
