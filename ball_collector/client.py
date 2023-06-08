@@ -1,7 +1,12 @@
-import requests
-import json
+import socket
 
-response = requests.get('http://127.0.0.1:5000')
-data = json.loads(response.text)
+SERVER_IP = '172.20.10.4'  # Replace with the IP address of your server
+SERVER_PORT = 5001
 
-print(data)
+# Create a socket object
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+# Connect to the server
+client_socket.connect((SERVER_IP, SERVER_PORT))
+
+print('connected')

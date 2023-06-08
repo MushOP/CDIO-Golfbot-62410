@@ -15,6 +15,14 @@ def mouse_callback(event, x, y, flags, param):
         hsv_value = hsv[y, x]
         print("HSV value at ({}, {}): {}".format(x, y, hsv_value))
 
+        # Define the HSV value range
+        hmin, smin, vmin = np.maximum(hsv_value - np.array([40, 155, 155]), 0)
+        hmax, smax, vmax = np.minimum(hsv_value + np.array([40, 100, 100]), [180, 255, 255])
+
+        # Print the HSV value range
+        hsv_values = {'hmin': hmin, 'smin': smin, 'vmin': vmin, 'hmax': hmax, 'smax': smax, 'vmax': vmax}
+        print("HSV value range: {}".format(hsv_values))
+
 # Register the mouse callback function
 cv2.namedWindow('Frame')
 cv2.setMouseCallback('Frame', mouse_callback)

@@ -3,11 +3,27 @@ import numpy as np
 import heapq
 import math
 from flask import Flask, jsonify
-app = Flask(__name__)
 import threading
+app = Flask(__name__)
+cap = None
 
 # Create a VideoCapture object to read from the camera
-cap = cv2.VideoCapture(0)
+def initialize_camera():
+    global cap
+    # Create a VideoCapture object to read from the camera
+    cap = cv2.VideoCapture(0)
+
+# Function to release the camera resources
+def release_camera():
+    if cap is not None:
+        cap.release()
+        cv2.destroyAllWindows()
+
+# Function to capture a frame from the camera
+def capture_frame():
+    ret, frame = cap.read()
+    return frame
+
 MAX_DISTANCE = 1000000
 
 def closest_node(node, nodes):
@@ -73,7 +89,8 @@ def detect_pink(frame):
     # Convert the frame to the HSV color space
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    hsv_values = {'hmin': 129, 'smin': 9, 'vmin': 97, 'hmax': 180, 'smax': 200, 'vmax': 255}
+    # Define the HSV values for the green rectangle
+    hsv_values = {'hmin': 140, 'smin': 100, 'vmin': 100, 'hmax': 180, 'smax': 255, 'vmax': 255}
     lower_green = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
     upper_green = np.array([hsv_values['hmax'], hsv_values['smax'], hsv_values['vmax']])
 
@@ -110,10 +127,8 @@ def detect_white_balls(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Define the range of white color in HSV
-    hsv_values = {'hmin': 0, 'smin': 0, 'vmin': 218, 'hmax': 180, 'smax': 20, 'vmax': 255}
-    lower_white = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
-    upper_white = np.array([hsv_values['hmax'], hsv_values['smax'], hsv_values['vmax']])
-
+    lower_white = np.array([0, 0, 200])
+    upper_white = np.array([180, 20, 255])
 
     # Threshold the HSV image to get only white colors
     mask = cv2.inRange(hsv, lower_white, upper_white)
@@ -140,16 +155,7 @@ def detect_white_balls(frame):
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 2)
 
     # Extract valid contour coordinates
-    #coordinates = [(cv2.boundingRect(contour)[:2]) for contour in valid_contours]
-
-    # Extract valid contour coordinates and centers
-    coordinates = []
-    centers = []
-    for contour in valid_contours:
-        x, y, w, h = cv2.boundingRect(contour)
-        coordinates.append((x, y, w, h))
-        center = (x + w // 2, y + h // 2)  # Calculate center of the bounding box
-        centers.append(center)
+    coordinates = [(cv2.boundingRect(contour)[:2]) for contour in valid_contours]
 
     # Create a graph with valid contour coordinates as vertices
     graph = {coord: {} for coord in coordinates}
@@ -162,39 +168,7 @@ def detect_white_balls(frame):
                 if distance <= MAX_DISTANCE:  # Adjust MAX_DISTANCE as needed
                     graph[v1][v2] = distance
 
-    return frame, coordinates, centers, graph
-
-def detect_red(frame):
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-
-    # Define the lower and upper red color ranges in HSV
-    hsv_values = {'hmin': 0, 'smin': 150, 'vmin': 175, 'hmax': 10, 'smax': 255, 'vmax': 255}
-    """
-    lower_red1 = np.array([0, 70, 50])
-    upper_red1 = np.array([10, 255, 255])
-    lower_red2 = np.array([170, 70, 50])
-    upper_red2 = np.array([180, 255, 255])
-    """
-    lower_red = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
-    upper_red = np.array([hsv_values['hmax'], hsv_values['smax'], hsv_values['vmax']])
-    # Threshold the HSV image to get only the red color
-    #mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-    #mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-
-    # Combine the masks
-    #mask = cv2.bitwise_or(mask1, mask2)
-    mask = cv2.inRange(hsv, lower_red, upper_red)
-    # Apply morphological operations to remove noise from the mask
-    kernel = np.ones((5, 5), np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)  # Changed to MORPH_CLOSE
-
-    # Find contours of the red regions
-    contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)  # Changed to RETR_LIST
-
-    # Draw contours on the frame
-    cv2.drawContours(frame, contours, -1, (0, 255, 0), 2)
-
-    return frame
+    return frame, coordinates, graph
 
 def calculate_angle(green_robot, pink_robot, ball_center):
     if green_robot is not None and pink_robot is not None and ball_center is not None:
@@ -220,79 +194,88 @@ def calculate_angle(green_robot, pink_robot, ball_center):
     else:
         return None
 
-
-@app.route('/', methods=['GET'])
+@app.route('/')
 def get_angle():
-    if robo_angle >= -4 and robo_angle <= 4:
-        return jsonify({'onpoint': robo_angle})
-    elif robo_angle < 0:
-        return jsonify({'left': robo_angle})
-    elif robo_angle > 0:
-        return jsonify({'right': robo_angle})
-    else:
-        return jsonify({'idk': robo_angle})
-
-# Function to run the Flask app in a separate thread
-def run_flask_app():
-    app.run(host='0.0.0.0', port=5001)
-
-# Start the Flask app on a separate thread
-flask_thread = threading.Thread(target=run_flask_app)
-flask_thread.start()
-
-global robo_angle
-global closest_ball
-closest_ball = None
-# Loop over frames from the video stream
-while True:
-    # Read a frame from the video stream
-    ret, frame = cap.read()
+    # Capture a frame from the camera
+    frame = capture_frame()
 
     # Detect the green rectangle (robot)
     robot = detect_robot(frame)
 
     # Detect the white balls and get valid contour coordinates and graph
-    frame, white_ball_coords, ball_centers, graph = detect_white_balls(frame)
+    _, white_ball_coords, _ = detect_white_balls(frame)
 
     pink = detect_pink(frame)
 
-    red = detect_red(frame)
-    
     # Find the starting point on the table tennis table
     start = robot[:2] if robot is not None else None
 
-    # Check if the starting point was found
-    if start is None:
-        print("Starting point not found. Adjust camera position or choose a different starting point.")
-    else:
-    
+    # Find the shortest path to the closest ball using Dijkstra's algorithm
+    closest_ball = closest_node(start, white_ball_coords)
+
+    # Calculate the angle if the closest ball is found
+    angle = calculate_angle(robot, pink, closest_ball) if closest_ball is not None else None
+
+    return jsonify({'angle': angle})
+
+def process_frames():  
+    # Loop over frames from the video stream
+    while True:
+        # Read a frame from the video stream
+        ret, frame = cap.read()
+
+        # Detect the green rectangle (robot)
+        robot = detect_robot(frame)
+
+        # Detect the white balls and get valid contour coordinates and graph
+        frame, white_ball_coords, graph = detect_white_balls(frame)
+
+        pink = detect_pink(frame)
+        
+        # Find the starting point on the table tennis table
+        start = robot[:2] if robot is not None else None
+
+        # Check if the starting point was found
+        if start is None:
+            print("Starting point not found. Adjust camera position or choose a different starting point.")
+            break
+        
         # Find the shortest path to the closest ball using Dijkstra's algorithm
         closest_ball = closest_node(start, white_ball_coords)
 
         # Draw a line from the starting point to the closest ball
-        if (closest_ball or start or frame) is not None:
+        if closest_ball is not None:
             cv2.line(frame, start, closest_ball, (255, 255, 0), 2)
-
-            robo_angle = angle = calculate_angle(robot, pink, closest_ball)
-            
-            if angle is not None:
-                cv2.putText(frame, "Angle: {:.2f}".format(angle), (start), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)  # Draw lines from the robot to each white ball
+            angle = calculate_angle(robot, pink, closest_ball)
+            cv2.putText(frame, "Angle: {:.2f}".format(angle), (start), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)    # Draw lines from the robot to each white ball
             #cv2.putText(frame, "Distance: {:.2f}".format(distance(start, closest_ball)), (start), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)    # Draw lines from the robot to each white ball
+            get_angle(robot, pink, closest_ball)
         #for ball_coord in white_ball_coords:
             #cv2.line(frame, start, ball_coord, (255, 0, 0), 2)
         #print("****", closest_ball)
         #print("****", white_ball_coords)
         cv2.line(frame, start, closest_ball, (255, 255, 0), 2)
         # Display the original frame with bounding boxes and lines
-    cv2.imshow('Frame', frame)
+        cv2.imshow('Frame', frame)
 
-    # Wait
-    key = cv2.waitKey(1) & 0xFF
+        # Wait
+        key = cv2.waitKey(1) & 0xFF
 
-    # If the 'q' key is pressed, break from the loop
-    if key == ord('q'):
-        break
+        # If the 'q' key is pressed, break from the loop
+        if key == ord('q'):
+            break
 
-# Release the VideoCapture object and close all windows
-cap.release()
-cv2.destroyAllWindows()
+# Create a new thread and target it to the process_frames function
+processing_thread = threading.Thread(target=process_frames)
+
+# Start the thread
+processing_thread.start()
+
+# Wait for the processing thread to complete (optional)
+processing_thread.join()
+
+ # Run the Flask application
+if __name__ == '__main__':
+    initialize_camera()  # Initialize the camera
+    app.run()
+    release_camera()  # Release the camera resources
