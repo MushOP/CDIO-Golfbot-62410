@@ -73,8 +73,7 @@ def detect_pink(frame):
     # Convert the frame to the HSV color space
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    # Define the HSV values for the green rectangle
-    hsv_values = {'hmin': 140, 'smin': 100, 'vmin': 100, 'hmax': 180, 'smax': 255, 'vmax': 255}
+    hsv_values = {'hmin': 129, 'smin': 9, 'vmin': 97, 'hmax': 180, 'smax': 200, 'vmax': 255}
     lower_green = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
     upper_green = np.array([hsv_values['hmax'], hsv_values['smax'], hsv_values['vmax']])
 
@@ -111,8 +110,10 @@ def detect_white_balls(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Define the range of white color in HSV
-    lower_white = np.array([0, 0, 255])
-    upper_white = np.array([180, 20, 255])
+    hsv_values = {'hmin': 0, 'smin': 0, 'vmin': 218, 'hmax': 180, 'smax': 20, 'vmax': 255}
+    lower_white = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
+    upper_white = np.array([hsv_values['hmax'], hsv_values['smax'], hsv_values['vmax']])
+
 
     # Threshold the HSV image to get only white colors
     mask = cv2.inRange(hsv, lower_white, upper_white)
@@ -213,7 +214,7 @@ def calculate_angle(green_robot, pink_robot, ball_center):
 
 @app.route('/', methods=['GET'])
 def get_angle():
-    if robo_angle >= -7 and robo_angle <= 7:
+    if robo_angle >= -4 and robo_angle <= 4:
         return jsonify({'onpoint': robo_angle})
     elif robo_angle < 0:
         return jsonify({'left': robo_angle})
@@ -231,7 +232,8 @@ flask_thread = threading.Thread(target=run_flask_app)
 flask_thread.start()
 
 global robo_angle
-
+global closest_ball
+closest_ball = None
 # Loop over frames from the video stream
 while True:
     # Read a frame from the video stream
@@ -256,6 +258,7 @@ while True:
     else:
     
         # Find the shortest path to the closest ball using Dijkstra's algorithm
+        #if closest_ball is None:
         closest_ball = closest_node(start, white_ball_coords)
 
         # Draw a line from the starting point to the closest ball

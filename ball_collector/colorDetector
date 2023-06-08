@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
 
+# Define the HSV values dictionary
+hsv_values = {'hmin': 140, 'smin': 100, 'vmin': 100, 'hmax': 180, 'smax': 255, 'vmax': 255}
+
 # Create a VideoCapture object to read from the camera
 cap = cv2.VideoCapture(0)
 
