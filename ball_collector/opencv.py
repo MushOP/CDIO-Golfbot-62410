@@ -73,7 +73,8 @@ def detect_pink(frame):
     # Convert the frame to the HSV color space
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    hsv_values = {'hmin': 129, 'smin': 9, 'vmin': 97, 'hmax': 180, 'smax': 200, 'vmax': 255}
+    # Define the HSV values for the green rectangle
+    hsv_values = {'hmin': 129, 'smin': 0, 'vmin': 97, 'hmax': 180, 'smax': 197, 'vmax': 255}
     lower_green = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
     upper_green = np.array([hsv_values['hmax'], hsv_values['smax'], hsv_values['vmax']])
 
@@ -219,11 +220,16 @@ def calculate_angle(green_robot, pink_robot, ball_center):
         return -angle_degrees  # Reverse the angle when the ball is in front of the green robot
     else:
         return None
-
-
+global goal
+goal = False
 @app.route('/', methods=['GET'])
 def get_angle():
-    if robo_angle >= -4 and robo_angle <= 4:
+    #print(goal)
+    if robo_angle >= -145 and robo_angle <= 155 and goal:
+        print("hit goal")
+        return jsonify({'goal_point': robo_angle - 180}) 
+    elif robo_angle >= -7 and robo_angle <= 7:
+        #print("hit on")
         return jsonify({'onpoint': robo_angle})
     elif robo_angle < 0:
         return jsonify({'left': robo_angle})
@@ -241,8 +247,7 @@ flask_thread = threading.Thread(target=run_flask_app)
 flask_thread.start()
 
 global robo_angle
-global closest_ball
-closest_ball = None
+
 # Loop over frames from the video stream
 while True:
     # Read a frame from the video stream
@@ -264,13 +269,38 @@ while True:
     # Check if the starting point was found
     if start is None:
         print("Starting point not found. Adjust camera position or choose a different starting point.")
-    else:
-    
-        # Find the shortest path to the closest ball using Dijkstra's algorithm
-        closest_ball = closest_node(start, white_ball_coords)
+    else:  
+        # Find the frame center
+        frame_height, frame_width = frame.shape[:2]
+        frame_center = (frame_width // 2, frame_height // 2)
+        #right_edge = (frame_width - 100, frame_center[1])
+        left_edge = (500, frame_center[1])
+        # Calculate the intermediate point before the left edge
+        intermediate_point = (int(left_edge[0] * 0.5), left_edge[1])
+        # Draw a line from the frame center to the intermediate point (in yellow)
+        cv2.line(frame, frame_center, intermediate_point, (0, 255, 255), 2)
+        # Draw a line from the intermediate point to the left edge (in yellow)
+        #cv2.line(frame, intermediate_point, left_edge, (0, 255, 255), 2)
+        cv2.circle(frame, intermediate_point, 5, (0, 255, 255), -1)
+        # Mark the left edge as the goal (draw a circle)
+        cv2.circle(frame, left_edge, 5, (0, 255, 255), -1)
+        
+        
 
+        # Find the shortest path to the closest ball using Dijkstra's algorithm
+        closest_ball = closest_node(start, ball_centers)
+        robo_angle = 0
+        if len(ball_centers) <= 0:
+            closest_ball = left_edge
+            #print(distance(start, closest_ball))
+            robo_angle = angle = calculate_angle(robot, pink, closest_ball)
+            print(robo_angle)
+            if distance(start, closest_ball) < 160 and robo_angle >= -145 and robo_angle <= -155:
+                goal = True
+        #closest_ball = left_edge
         # Draw a line from the starting point to the closest ball
-        if (closest_ball or start or frame) is not None:
+        #print(closest_ball)
+        if closest_ball is not None and start is not None and frame is not None:
             cv2.line(frame, start, closest_ball, (255, 255, 0), 2)
 
             robo_angle = angle = calculate_angle(robot, pink, closest_ball)
