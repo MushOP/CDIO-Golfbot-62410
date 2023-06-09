@@ -27,7 +27,7 @@ robot = DriveBase(left_wheel, right_wheel, wheel_diameter=55.5, axle_track=104)
 
 # Write your program here.
 ev3.speaker.beep()
-
+run = False
 while True:
     # Create a socket object
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -51,21 +51,27 @@ while True:
     command = json.loads(body)  # Moved JSON decoding here
     
     # Assuming the response is in JSON format, you can parse it
-    # json_data = json.loads(response)
-    # print("Parsed JSON:", json_data)
+    #json_data = json.loads(response)
+    print("Parsed JSON:", command)
     if 'left' in command:
         robot.drive(0, 50)
         # print('left-angle: ', command['left'])
+        #robot.turn(command['left'])
     elif 'right' in command:
         # print('right-angle: ', command['right'])
         robot.drive(0, -50)
+        #robot.turn(-command['right'])
     elif 'onpoint' in command:
         print("I'm at around angle 0", command['onpoint'])
         #robot.stop()
         robot.drive(100, 0)
-        left_arm = Motor(Port.C, Direction.COUNTERCLOCKWISE, [12, 36])
+        left_arm = Motor(Port.C, Direction.COUNTERCLOCKWISE, [12, 36]) 
         left_arm.control.limits(speed=150, acceleration=120)
         left_arm.run(150)
+    elif 'goal_point' in command:
+        print("im at point")
+        run = True
+        robot.turn(180-command["goal_point"])
     else:
         print('Something went wrong: ', command['idk'])
     
@@ -74,8 +80,8 @@ while True:
     
     # Delay before making the next request
     #time.sleep(1)
+
     
-    """
     # Parse the command and set the motor speeds
     if command == 'forward':
         robot.drive(200, 0)
@@ -111,4 +117,3 @@ while True:
         s.sendall('Turning'.encode())
         wait(4)
         robot.turn(250)
-    """
