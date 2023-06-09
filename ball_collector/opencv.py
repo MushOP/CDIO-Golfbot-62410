@@ -5,6 +5,8 @@ import math
 from flask import Flask, jsonify
 app = Flask(__name__)
 import threading
+import time
+last_update_time = time.time() - 3
 
 # Create a VideoCapture object to read from the camera
 cap = cv2.VideoCapture(0)
@@ -32,7 +34,8 @@ def detect_robot(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Define the HSV values for the green rectangle
-    hsv_values = {'hmin': 70, 'smin': 38, 'vmin': 0, 'hmax': 92, 'smax': 255, 'vmax': 255}
+    #hsv_values = {'hmin': 29, 'smin': 45, 'vmin': 27, 'hmax': 92, 'smax': 255, 'vmax': 255}
+    hsv_values = {'hmin': 48, 'smin': 74, 'vmin': 27, 'hmax': 92, 'smax': 255, 'vmax': 255}
     lower_green = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
     upper_green = np.array([hsv_values['hmax'], hsv_values['smax'], hsv_values['vmax']])
 
@@ -102,10 +105,9 @@ def detect_pink(frame):
         rect = cv2.minAreaRect(largest_contour)
         box = cv2.boxPoints(rect)
         box = np.int0(box)
-        cv2.drawContours(frame, [box], 0, (0, 255, 0), 3)
+        cv2.drawContours(frame, [box], 0, (255, 192, 203), 3)
         center = np.mean(box, axis=0)
         return center
-
 def detect_white_balls(frame):
     # Convert the frame to the HSV color space
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -114,7 +116,6 @@ def detect_white_balls(frame):
     hsv_values = {'hmin': 0, 'smin': 0, 'vmin': 218, 'hmax': 180, 'smax': 20, 'vmax': 255}
     lower_white = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
     upper_white = np.array([hsv_values['hmax'], hsv_values['smax'], hsv_values['vmax']])
-
 
     # Threshold the HSV image to get only white colors
     mask = cv2.inRange(hsv, lower_white, upper_white)
@@ -135,22 +136,20 @@ def detect_white_balls(frame):
         if min_area < area < max_area:
             valid_contours.append(contour)
 
-    # Draw bounding boxes around valid contours
+    # Draw bounding circles around valid contours
     for contour in valid_contours:
-        x, y, w, h = cv2.boundingRect(contour)
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 2)
-
-    # Extract valid contour coordinates
-    #coordinates = [(cv2.boundingRect(contour)[:2]) for contour in valid_contours]
+        (x, y), radius = cv2.minEnclosingCircle(contour)
+        center = (int(x), int(y))
+        radius = int(radius)
+        cv2.circle(frame, center, radius, (0, 255, 255), 2)
 
     # Extract valid contour coordinates and centers
     coordinates = []
     centers = []
     for contour in valid_contours:
-        x, y, w, h = cv2.boundingRect(contour)
-        coordinates.append((x, y, w, h))
-        center = (x + w // 2, y + h // 2)  # Calculate center of the bounding box
-        centers.append(center)
+        (x, y), radius = cv2.minEnclosingCircle(contour)
+        coordinates.append((int(x - radius), int(y - radius), int(radius * 2), int(radius * 2)))
+        centers.append((int(x), int(y)))
 
     # Create a graph with valid contour coordinates as vertices
     graph = {coord: {} for coord in coordinates}
@@ -203,10 +202,10 @@ def calculate_angle(green_robot, pink_robot, ball_center):
         pink_center = pink_robot
 
         # Calculate the angle between the green robot and the ball center
-        angle1 = math.atan2(ball_center[1] - green_center[1], ball_center[0] - green_center[0])
+        angle1 = math.atan2(green_center[1] - ball_center[1], green_center[0] - ball_center[0])
 
         # Calculate the angle between the green robot and the pink robot
-        angle2 = math.atan2(green_center[1] - pink_center[1], green_center[0] - pink_center[0])
+        angle2 = math.atan2(pink_center[1] - green_center[1], pink_center[0] - green_center[0])
 
         # Calculate the angle between the green robot's front and the line connecting it to the ball center
         angle_degrees = math.degrees(angle1 - angle2)
@@ -228,7 +227,7 @@ def get_angle():
     if robo_angle >= -145 and robo_angle <= 155 and goal:
         print("hit goal")
         return jsonify({'goal_point': robo_angle - 180}) 
-    elif robo_angle >= -7 and robo_angle <= 7:
+    elif robo_angle >= -6 and robo_angle <= 6:
         #print("hit on")
         return jsonify({'onpoint': robo_angle})
     elif robo_angle < 0:
@@ -274,7 +273,7 @@ while True:
         frame_height, frame_width = frame.shape[:2]
         frame_center = (frame_width // 2, frame_height // 2)
         #right_edge = (frame_width - 100, frame_center[1])
-        left_edge = (500, frame_center[1])
+        left_edge = (700, frame_center[1])
         # Calculate the intermediate point before the left edge
         intermediate_point = (int(left_edge[0] * 0.5), left_edge[1])
         # Draw a line from the frame center to the intermediate point (in yellow)
@@ -288,13 +287,17 @@ while True:
         
 
         # Find the shortest path to the closest ball using Dijkstra's algorithm
+        current_time = time.time()
+        #if current_time - last_update_time >= 4:
         closest_ball = closest_node(start, ball_centers)
+            #last_update_time = current_time
+            #closest_ball = closest_node(start, ball_centers)
         robo_angle = 0
         if len(ball_centers) <= 0:
             closest_ball = left_edge
             #print(distance(start, closest_ball))
             robo_angle = angle = calculate_angle(robot, pink, closest_ball)
-            print(robo_angle)
+            #print(robo_angle)
             if distance(start, closest_ball) < 160 and robo_angle >= -145 and robo_angle <= -155:
                 goal = True
         #closest_ball = left_edge
