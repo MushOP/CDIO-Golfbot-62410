@@ -20,7 +20,7 @@ SERVER_PORT = 5001
 ev3 = EV3Brick()
 left_wheel = Motor(Port.B)
 right_wheel = Motor(Port.D)
-ultra = UltrasonicSensor(Port.S4)
+#ultra = UltrasonicSensor(Port.S4)
 front_arm = Motor(Port.C)
 back_arm = Motor(Port.A)
 robot = DriveBase(left_wheel, right_wheel, wheel_diameter=55.5, axle_track=104)
@@ -54,24 +54,36 @@ while True:
     #json_data = json.loads(response)
     print("Parsed JSON:", command)
     if 'left' in command:
-        robot.drive(0, 50)
+        #robot.drive(0, 50)
         # print('left-angle: ', command['left'])
-        #robot.turn(command['left'])
+        robot.turn(command['left'])
     elif 'right' in command:
         # print('right-angle: ', command['right'])
-        robot.drive(0, -50)
-        #robot.turn(-command['right'])
+        #robot.turn(command["right"])
+        #robot.drive(0, -50)
+        robot.turn(-command['right'])
     elif 'onpoint' in command:
         print("I'm at around angle 0", command['onpoint'])
         #robot.stop()
+        #robot.turn(command['onpoint'])
         robot.drive(100, 0)
         left_arm = Motor(Port.C, Direction.COUNTERCLOCKWISE, [12, 36]) 
         left_arm.control.limits(speed=150, acceleration=120)
-        left_arm.run(150)
+        left_arm.run(55)
     elif 'goal_point' in command:
         print("im at point")
         run = True
-        robot.turn(180-command["goal_point"])
+        #robot.turn(180-command["goal_point"]) //TODO lav en ny command som kan fjerne bolde fra hjøner.
+        robot.stop()
+        robot.turn(260)
+
+        port = Motor(Port.A, Direction.CLOCKWISE, [12, 36])
+        port.control.limits(speed=60, acceleration=120)
+        port.run(60)
+        time.sleep(2)
+        port = Motor(Port.A, Direction.COUNTERCLOCKWISE, [12, 36])
+        port.control.limits(speed=60, acceleration=120)
+        port.run(60)
     else:
         print('Something went wrong: ', command['idk'])
     
@@ -80,5 +92,3 @@ while True:
     
     # Delay before making the next request
     #time.sleep(1)
-
-    
