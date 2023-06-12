@@ -80,3 +80,41 @@ while True:
     
     # Delay before making the next request
     #time.sleep(1)
+
+    """
+    # Parse the command and set the motor speeds
+    if command == 'forward':
+        robot.drive(200, 0)
+        left_arm = Motor(Port.C, Direction.COUNTERCLOCKWISE, [12, 36])
+        left_arm.control.limits(speed=100, acceleration=120)
+        left_arm.run(100)
+        if ultra.distance() < 400:
+            print("ultra: ", ultra.distance())
+            print("Turning inside if")
+            s.sendall('Turning'.encode())
+            wait(3)
+            robot.turn(200)
+        print("ultra: ", ultra.distance())
+    elif command == 'backward':
+        left_arm.run(0)
+        robot.drive(-200, 0)
+    elif command == 'left':
+        robot.drive(0, 200)
+    elif command == 'right':
+        robot.drive(0, -200)
+    elif command == 'stop':
+        robot.stop()
+    elif command == "open":
+        port = Motor(Port.A, Direction.CLOCKWISE, [12, 36])
+        port.control.limits(speed=60, acceleration=120)
+        port.run(60)
+    elif command == "close":
+        port = Motor(Port.A, Direction.COUNTERCLOCKWISE, [12, 36])
+        port.control.limits(speed=60, acceleration=120)
+        port.run(60)
+    while ultra.distance() < 400:                   #kode delen for at robotten kan køre plus se om der er en væg ( den som var vist på video)
+        print("Turning")
+        s.sendall('Turning'.encode())
+        wait(4)
+        robot.turn(250)
+    """
