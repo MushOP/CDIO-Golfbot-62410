@@ -13,7 +13,7 @@ import time
 # This program requires LEGO EV3 MicroPython v2.0 or higher.
 # Click "Open user guide" on the EV3 extension tab for more information.
 
-SERVER_IP = '172.20.10.4'  # Replace with the IP address of your server
+SERVER_IP = '172.20.10.3'  # Replace with the IP address of your server
 SERVER_PORT = 5001
 
 # Create a DriveBase object to control the motors
@@ -80,7 +80,7 @@ while True:
     
     # Delay before making the next request
     #time.sleep(1)
-
+    
     
     # Parse the command and set the motor speeds
     if command == 'forward':
