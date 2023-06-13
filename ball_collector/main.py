@@ -13,21 +13,21 @@ import time
 # This program requires LEGO EV3 MicroPython v2.0 or higher.
 # Click "Open user guide" on the EV3 extension tab for more information.
 
-SERVER_IP = '172.20.10.3'  # Replace with the IP address of your server
+SERVER_IP = '172.20.10.13'  # Replace with the IP address of your server
 SERVER_PORT = 5001
 
 # Create a DriveBase object to control the motors
 ev3 = EV3Brick()
 left_wheel = Motor(Port.B)
 right_wheel = Motor(Port.D)
-ultra = UltrasonicSensor(Port.S4)
+#ultra = UltrasonicSensor(Port.S4)
 front_arm = Motor(Port.C)
 back_arm = Motor(Port.A)
 robot = DriveBase(left_wheel, right_wheel, wheel_diameter=55.5, axle_track=104)
 
 # Write your program here.
 ev3.speaker.beep()
-
+run = False
 while True:
     # Create a socket object
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -54,20 +54,36 @@ while True:
     #json_data = json.loads(response)
     print("Parsed JSON:", command)
     if 'left' in command:
-        robot.drive(0, 50)
+        #robot.drive(0, 50)
         # print('left-angle: ', command['left'])
-        #robot.turn(command['left'])
+        robot.turn(command['left'])
     elif 'right' in command:
         # print('right-angle: ', command['right'])
-        robot.drive(0, -50)
-        #robot.turn(-command['right'])
+        #robot.turn(command["right"])
+        #robot.drive(0, -50)
+        robot.turn(-command['right'])
     elif 'onpoint' in command:
         print("I'm at around angle 0", command['onpoint'])
         #robot.stop()
+        #robot.turn(command['onpoint'])
         robot.drive(100, 0)
-        left_arm = Motor(Port.C, Direction.COUNTERCLOCKWISE, [12, 36])
+        left_arm = Motor(Port.C, Direction.COUNTERCLOCKWISE, [12, 36]) 
         left_arm.control.limits(speed=150, acceleration=120)
-        left_arm.run(150)
+        left_arm.run(55)
+    elif 'goal_point' in command:
+        print("im at point")
+        run = True
+        #robot.turn(180-command["goal_point"]) //TODO lav en ny command som kan fjerne bolde fra hjøner.
+        robot.stop()
+        robot.turn(260)
+
+        port = Motor(Port.A, Direction.CLOCKWISE, [12, 36])
+        port.control.limits(speed=60, acceleration=120)
+        port.run(60)
+        time.sleep(2)
+        port = Motor(Port.A, Direction.COUNTERCLOCKWISE, [12, 36])
+        port.control.limits(speed=60, acceleration=120)
+        port.run(60)
     else:
         print('Something went wrong: ', command['idk'])
     
@@ -76,41 +92,3 @@ while True:
     
     # Delay before making the next request
     #time.sleep(1)
-
-    """
-    # Parse the command and set the motor speeds
-    if command == 'forward':
-        robot.drive(200, 0)
-        left_arm = Motor(Port.C, Direction.COUNTERCLOCKWISE, [12, 36])
-        left_arm.control.limits(speed=100, acceleration=120)
-        left_arm.run(100)
-        if ultra.distance() < 400:
-            print("ultra: ", ultra.distance())
-            print("Turning inside if")
-            s.sendall('Turning'.encode())
-            wait(3)
-            robot.turn(200)
-        print("ultra: ", ultra.distance())
-    elif command == 'backward':
-        left_arm.run(0)
-        robot.drive(-200, 0)
-    elif command == 'left':
-        robot.drive(0, 200)
-    elif command == 'right':
-        robot.drive(0, -200)
-    elif command == 'stop':
-        robot.stop()
-    elif command == "open":
-        port = Motor(Port.A, Direction.CLOCKWISE, [12, 36])
-        port.control.limits(speed=60, acceleration=120)
-        port.run(60)
-    elif command == "close":
-        port = Motor(Port.A, Direction.COUNTERCLOCKWISE, [12, 36])
-        port.control.limits(speed=60, acceleration=120)
-        port.run(60)
-    while ultra.distance() < 400:                   #kode delen for at robotten kan køre plus se om der er en væg ( den som var vist på video)
-        print("Turning")
-        s.sendall('Turning'.encode())
-        wait(4)
-        robot.turn(250)
-    """
