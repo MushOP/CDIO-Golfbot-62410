@@ -34,8 +34,8 @@ def detect_robot(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Define the HSV values for the green rectangle
-    #hsv_values = {'hmin': 29, 'smin': 45, 'vmin': 27, 'hmax': 92, 'smax': 255, 'vmax': 255}
-    hsv_values = {'hmin': 40, 'smin': 75, 'vmin': 20, 'hmax': 80, 'smax': 255, 'vmax': 255}
+    hsv_values = {'hmin': 29, 'smin': 45, 'vmin': 27, 'hmax': 92, 'smax': 255, 'vmax': 255}
+    #hsv_values = {'hmin': 40, 'smin': 75, 'vmin': 20, 'hmax': 80, 'smax': 255, 'vmax': 255}
     lower_green = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
     upper_green = np.array([hsv_values['hmax'], hsv_values['smax'], hsv_values['vmax']])
 
@@ -117,7 +117,7 @@ def detect_white_balls(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Define the range of white color in HSV
-    hsv_values = {'hmin': 0, 'smin': 0, 'vmin': 200, 'hmax': 180, 'smax': 20, 'vmax': 255}
+    hsv_values = {'hmin': 0, 'smin': 0, 'vmin': 220, 'hmax': 220, 'smax': 30, 'vmax': 255}
     lower_white = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
     upper_white = np.array([hsv_values['hmax'], hsv_values['smax'], hsv_values['vmax']])
 
@@ -133,13 +133,13 @@ def detect_white_balls(frame):
 
     # Filter contours based on area, shape, and circularity
     min_area = 100  # Minimum area threshold for contours
-    max_area = 1000  # Maximum area threshold for contours
+    max_area = 2000  # Maximum area threshold for contours
     valid_contours = []
     for contour in contours:
         area = cv2.contourArea(contour)
         perimeter = cv2.arcLength(contour, True)
         circularity = 4 * np.pi * (area / (perimeter * perimeter))
-        if min_area < area < max_area and 0.72 < circularity < 1.2:  # adjust circularity range as needed
+        if min_area < area < max_area and 0.5 < circularity < 1.2:  # adjust circularity range as needed
             valid_contours.append(contour)
 
     # Draw bounding circles around valid contours
@@ -244,17 +244,16 @@ angle_checked = False
 @app.route('/', methods=['GET'])
 def get_angle():
     global angle_checked  # Declare angle_checked and angle_checked2 as global
-    
+    test = 0
     #if not angle_checked:  # First angle check
-    if -0.5 <= robo_angle <= 0.5:
+    if -1 <= robo_angle <= 1:
         #angle_checked = True
         #if getdistance > 300:
         print("Aligned. Moving towards the ball...")
         print("distance = ", getdistance)
-        if goal:
-            return jsonify({'goal_point': getdistance/2})
-        else:
-            return jsonify({'onpoint': getdistance/2})
+        if getdistance <= 150:
+            test = 25
+        return jsonify({'onpoint': (getdistance/2) + 10})
     elif robo_angle > 1:
         print("Turning right to align with the ball...")
         return jsonify({'right': robo_angle})
