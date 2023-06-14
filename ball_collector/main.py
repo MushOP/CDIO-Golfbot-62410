@@ -13,7 +13,7 @@ import time
 # This program requires LEGO EV3 MicroPython v2.0 or higher.
 # Click "Open user guide" on the EV3 extension tab for more information.
 
-SERVER_IP = '172.20.10.13'  # Replace with the IP address of your server
+SERVER_IP = '192.168.1.117'  # Replace with the IP address of your server
 SERVER_PORT = 5001
 
 # Create a DriveBase object to control the motors
@@ -23,7 +23,7 @@ right_wheel = Motor(Port.D)
 #ultra = UltrasonicSensor(Port.S4)
 front_arm = Motor(Port.C)
 back_arm = Motor(Port.A)
-robot = DriveBase(left_wheel, right_wheel, wheel_diameter=55.5, axle_track=104)
+robot = DriveBase(left_wheel, right_wheel, wheel_diameter=65, axle_track=290)
 
 # Write your program here.
 ev3.speaker.beep()
@@ -53,20 +53,27 @@ while True:
     # Assuming the response is in JSON format, you can parse it
     #json_data = json.loads(response)
     print("Parsed JSON:", command)
-    if 'left' in command:
+    if 'wait' in command:
+        robot.stop()
+    elif 'forward' in command:
+        robot.drive(command['forward'],0)
+    elif 'left' in command:
         #robot.drive(0, 50)
         # print('left-angle: ', command['left'])
+        #robot.turn(-command['left'])
         robot.turn(command['left'])
     elif 'right' in command:
         # print('right-angle: ', command['right'])
         #robot.turn(command["right"])
         #robot.drive(0, -50)
-        robot.turn(-command['right'])
+        robot.turn(command['right'])
     elif 'onpoint' in command:
-        print("I'm at around angle 0", command['onpoint'])
+        print("I'm at around angle 0", round(command['onpoint']))
         #robot.stop()
         #robot.turn(command['onpoint'])
-        robot.drive(100, 0)
+        dist = round(command['onpoint'])
+        robot.straight(dist)
+        #robot.drive(100, 0)
         left_arm = Motor(Port.C, Direction.COUNTERCLOCKWISE, [12, 36]) 
         left_arm.control.limits(speed=150, acceleration=120)
         left_arm.run(55)
@@ -74,12 +81,16 @@ while True:
         print("im at point")
         run = True
         #robot.turn(180-command["goal_point"]) //TODO lav en ny command som kan fjerne bolde fra hjøner.
+        #dist = round(command['goal_point'])
+        robot.straight(command['goal_point'])
         robot.stop()
-        robot.turn(260)
+        #robot.turn(command)
+        robot.turn(110)
 
         port = Motor(Port.A, Direction.CLOCKWISE, [12, 36])
         port.control.limits(speed=60, acceleration=120)
         port.run(60)
+        robot.drive(50,0)
         time.sleep(2)
         port = Motor(Port.A, Direction.COUNTERCLOCKWISE, [12, 36])
         port.control.limits(speed=60, acceleration=120)
