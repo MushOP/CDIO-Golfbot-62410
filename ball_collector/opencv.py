@@ -419,7 +419,29 @@ Coordinates at click: 526, 134"""
 
 def draw_circles_at_coordinates(frame):
     # Define a list of hardcoded coordinates
-    hardcoded_coordinates = [(1663, 183), (1688, 1039), (450, 1019), (526, 134)]
+    hardcoded_coordinates = [(1650, 128), (490, 106), (421, 970), (1669, 1010)]
+    
+    # Get frame dimensions
+    height, width = frame.shape[:2]
+    
+    # Convert hardcoded coordinates to a numpy array
+    polygon_pts = np.array(hardcoded_coordinates, dtype=np.int32)
+    polygon_pts = polygon_pts.reshape((-1, 1, 2))
+    
+    # Draw the border (polygon) by connecting coordinates
+    cv2.polylines(frame, [polygon_pts], isClosed=True, color=(255, 0, 0), thickness=2)
+
+    return polygon_pts  # Return the polygon points for later use
+
+def redcross(frame,polygon_pts):
+     if cv2.pointPolygonTest(np.array(polygon_pts), center, False) >= 0:
+            cv2.circle(frame, center, radius, (0, 255, 255), 2)
+            coordinates.append((int(x - radius), int(y - radius), int(radius * 2), int(radius * 2)))
+            centers.append(center)
+    
+def draw_circles_at_redcross(frame):
+    # Define a list of hardcoded coordinates
+    hardcoded_coordinates = [( 981, 424), (1037, 506), (953, 559), (904, 477)]
     
     # Get frame dimensions
     height, width = frame.shape[:2]
@@ -440,6 +462,7 @@ while True:
     #frame = white_balance(frame)
     # Draw circles and get the polygon points
     polygon_pts = draw_circles_at_coordinates(frame)
+    polygon_pts1 = draw_circles_at_redcross(frame)
 
     # Detect the green rectangle (robot)
     robot = detect_robot(frame)
