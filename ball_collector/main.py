@@ -99,6 +99,12 @@ while True:
     elif 'turnback' in command:
         robot.stop()
         robot.drive(-50,-10)
+    elif 'goal_right' in command:
+        print("goal right", round(command['goal_right']))
+        robot.drive(0,-5)
+    elif 'goal_left' in command:
+        print("goal left", round(command['goal_left']))
+        robot.drive(0,-5)
     else:
         print('Something went wrong: ', command['idk'])
 
