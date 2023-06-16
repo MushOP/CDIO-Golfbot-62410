@@ -13,7 +13,7 @@ import time
 # This program requires LEGO EV3 MicroPython v2.0 or higher.
 # Click "Open user guide" on the EV3 extension tab for more information.
 
-SERVER_IP = '192.168.1.72'  # Replace with the IP address of your server
+SERVER_IP = '192.168.1.117'  # Replace with the IP address of your server
 SERVER_PORT = 5001
 
 # Create a DriveBase object to control the motors
@@ -24,7 +24,7 @@ right_wheel = Motor(Port.D)
 front_arm = Motor(Port.C)
 back_arm = Motor(Port.A)
 robot = DriveBase(left_wheel, right_wheel, wheel_diameter=65, axle_track=290)
-lightsensor = ColorSensor(Port.S1)
+#lightsensor = ColorSensor(Port.S1)
 
 # Write your program here.
 ev3.speaker.beep()
@@ -86,7 +86,7 @@ while True:
         robot.straight(command['goal_point'])
         robot.stop()
         #robot.turn(command)
-        robot.turn(110)
+        #robot.turn(110)
 
         port = Motor(Port.A, Direction.CLOCKWISE, [12, 36])
         port.control.limits(speed=60, acceleration=120)
@@ -96,15 +96,19 @@ while True:
         port = Motor(Port.A, Direction.COUNTERCLOCKWISE, [12, 36])
         port.control.limits(speed=60, acceleration=120)
         port.run(60)
+    elif 'turnback' in command:
+        robot.stop()
+        robot.drive(-50,-10)
     else:
         print('Something went wrong: ', command['idk'])
 
 
         # Check the color detected by the light sensor
-    if lightsensor.color() == Color.RED:
+   # if lightsensor.color() == Color.RED:
         
         # If red color is detected, stop the robot to protect the middle red cross
-        robot.stop()
+        #robot.stop()
+       # robot.drive(-50,50)
     
     # Close the socket connection
     sock.close()
