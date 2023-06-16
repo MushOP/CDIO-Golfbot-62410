@@ -454,6 +454,30 @@ def draw_circles_at_redcross(frame):
     cv2.polylines(frame, [polygon_pts], isClosed=True, color=(255, 0, 0), thickness=2)
 
     return polygon_pts  # Return the polygon points for later use
+#Draw a line
+
+def draw_line(image, start, end, color, thickness=2):
+    height, width = image.shape[:2]
+
+    # Calculate the line endpoints that extend to the edges of the frame
+    x1, y1 = start
+    x2, y2 = end
+
+    if x1 == x2:  # Vertical line
+        x1 = x2 = max(0, min(x1, width - 1))
+        y1 = 0
+        y2 = height - 1
+    else:
+        m = (y2 - y1) / (x2 - x1)  # Slope
+        b = y1 - m * x1  # Intercept
+
+        x1 = 0
+        y1 = int(b)
+        x2 = width - 1
+        y2 = int(m * x2 + b)
+
+    cv2.line(image, (x1, y1), (x2, y2), color, thickness)
+
 
 # Loop over frames from the video stream
 while True:
