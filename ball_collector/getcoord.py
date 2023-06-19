@@ -1,5 +1,4 @@
 import cv2
-import numpy as np
 
 # Create a VideoCapture object to read from the camera
 cap = cv2.VideoCapture(0)
@@ -38,7 +37,7 @@ while True:
         break
 
 # After breaking the loop, print all stored coordinates
-print("All clicked coordinates: ", coords)
+print(f"hardcoded_coordinates = {coords}")
 
 # Release the VideoCapture object and close all windows
 cap.release()
