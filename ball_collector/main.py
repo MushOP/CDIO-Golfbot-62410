@@ -13,18 +13,15 @@ import time
 # This program requires LEGO EV3 MicroPython v2.0 or higher.
 # Click "Open user guide" on the EV3 extension tab for more information.
 
-SERVER_IP = '192.168.1.117'  # Replace with the IP address of your server
+SERVER_IP = '172.20.10.13'  # Replace with the IP address of your server
 SERVER_PORT = 5001
-
+#192.168.1.117 muaz
 # Create a DriveBase object to control the motors
 ev3 = EV3Brick()
 left_wheel = Motor(Port.B)
 right_wheel = Motor(Port.D)
-#ultra = UltrasonicSensor(Port.S4)
 front_arm = Motor(Port.C)
-back_arm = Motor(Port.A)
-robot = DriveBase(left_wheel, right_wheel, wheel_diameter=65, axle_track=290)
-#lightsensor = ColorSensor(Port.S1)
+robot = DriveBase(left_wheel, right_wheel, wheel_diameter=65, axle_track=230)
 
 # Write your program here.
 ev3.speaker.beep()
@@ -52,72 +49,43 @@ while True:
     command = json.loads(body)  # Moved JSON decoding here
     
     # Assuming the response is in JSON format, you can parse it
-    #json_data = json.loads(response)
     print("Parsed JSON:", command)
     if 'wait' in command:
         robot.stop()
     elif 'forward' in command:
         robot.drive(command['forward'],0)
     elif 'left' in command:
-        #robot.drive(0, 50)
-        # print('left-angle: ', command['left'])
-        #robot.turn(-command['left'])
         robot.turn(command['left'])
     elif 'right' in command:
-        # print('right-angle: ', command['right'])
-        #robot.turn(command["right"])
-        #robot.drive(0, -50)
         robot.turn(command['right'])
     elif 'onpoint' in command:
         print("I'm at around angle 0", round(command['onpoint']))
-        #robot.stop()
-        #robot.turn(command['onpoint'])
         dist = round(command['onpoint'])
         robot.straight(dist)
-        #robot.drive(100, 0)
         left_arm = Motor(Port.C, Direction.COUNTERCLOCKWISE, [12, 36]) 
         left_arm.control.limits(speed=150, acceleration=120)
-        left_arm.run(55)
+        left_arm.run(70)
     elif 'goal_point' in command:
         print("im at point")
         run = True
-        #robot.turn(180-command["goal_point"]) //TODO lav en ny command som kan fjerne bolde fra hjøner.
-        #dist = round(command['goal_point'])
         robot.straight(command['goal_point'])
         robot.stop()
-        #robot.turn(command)
-        #robot.turn(110)
-
-        port = Motor(Port.A, Direction.CLOCKWISE, [12, 36])
-        port.control.limits(speed=60, acceleration=120)
-        port.run(60)
-        robot.drive(50,0)
+        robot.drive(-100,0)
         time.sleep(2)
-        port = Motor(Port.A, Direction.COUNTERCLOCKWISE, [12, 36])
-        port.control.limits(speed=60, acceleration=120)
-        port.run(60)
+        back_arm = Motor(Port.A, Direction.CLOCKWISE, [12, 36])
+        back_arm.control.limits(speed=60, acceleration=120)
+        back_arm.run(60)
+        robot.drive(150,0)
+        time.sleep(2)
+        back_arm = Motor(Port.A, Direction.COUNTERCLOCKWISE, [12, 36])
+        back_arm.control.limits(speed=60, acceleration=120)
+        back_arm.run(60)
     elif 'turnback' in command:
         robot.stop()
         robot.drive(-50,-10)
-    elif 'goal_right' in command:
-        print("goal right", round(command['goal_right']))
-        robot.drive(0,-5)
-    elif 'goal_left' in command:
-        print("goal left", round(command['goal_left']))
-        robot.drive(0,-5)
     else:
         print('Something went wrong: ', command['idk'])
-
-
-        # Check the color detected by the light sensor
-   # if lightsensor.color() == Color.RED:
-        
-        # If red color is detected, stop the robot to protect the middle red cross
-        #robot.stop()
-       # robot.drive(-50,50)
     
     # Close the socket connection
     sock.close()
     
-    # Delay before making the next request
-    #time.sleep(1)
