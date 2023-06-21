@@ -13,12 +13,11 @@ import time
 # This program requires LEGO EV3 MicroPython v2.0 or higher.
 # Click "Open user guide" on the EV3 extension tab for more information.
 
-SERVER_IP = '172.20.10.13'  # Replace with the IP address of your server
+SERVER_IP = '192.168.1.117'  # Replace with the IP address of your server
 SERVER_PORT = 5001
-#192.168.1.117 muaz
 # Create a DriveBase object to control the motors
 ev3 = EV3Brick()
-left_wheel = Motor(Port.B)
+left_wheel = Motor(Port.B) 
 right_wheel = Motor(Port.D)
 front_arm = Motor(Port.C)
 robot = DriveBase(left_wheel, right_wheel, wheel_diameter=65, axle_track=230)
@@ -53,7 +52,10 @@ while True:
     if 'wait' in command:
         robot.stop()
     elif 'forward' in command:
-        robot.drive(command['forward'],0)
+        dist = round(command['forward'])
+        robot.straight(dist)
+    elif 'backward' in command:
+        robot.drive(-250,0)
     elif 'left' in command:
         robot.turn(command['left'])
     elif 'right' in command:
@@ -75,14 +77,16 @@ while True:
         back_arm = Motor(Port.A, Direction.CLOCKWISE, [12, 36])
         back_arm.control.limits(speed=60, acceleration=120)
         back_arm.run(60)
-        robot.drive(150,0)
+        robot.drive(250,0)
         time.sleep(2)
         back_arm = Motor(Port.A, Direction.COUNTERCLOCKWISE, [12, 36])
         back_arm.control.limits(speed=60, acceleration=120)
         back_arm.run(60)
     elif 'turnback' in command:
         robot.stop()
-        robot.drive(-50,-10)
+        robot.drive(-100,-10)
+    elif 'forward_cross' in command:
+        robot.drive(280,0)
     else:
         print('Something went wrong: ', command['idk'])
     
