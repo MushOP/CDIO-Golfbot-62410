@@ -81,8 +81,8 @@ def detect_pink(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Define the HSV values for the green rectangle
-    hsv_values = {'hmin': 129, 'smin': 0, 'vmin': 97, 'hmax': 180, 'smax': 197, 'vmax': 255}
-    #hsv_values = {'hmin': 150, 'smin': 50, 'vmin': 50, 'hmax': 180, 'smax': 255, 'vmax': 255}
+    #hsv_values = {'hmin': 129, 'smin': 0, 'vmin': 97, 'hmax': 180, 'smax': 197, 'vmax': 255}
+    hsv_values = {'hmin': 150, 'smin': 50, 'vmin': 50, 'hmax': 180, 'smax': 255, 'vmax': 255}
     #hsv_values = {'hmin': 150, 'smin': 100, 'vmin': 100, 'hmax': 200, 'smax': 255, 'vmax': 255}
     #hsv_values = {'hmin': 170, 'smin': 50, 'vmin': 50, 'hmax': 180, 'smax': 255, 'vmax': 255}
     lower_green = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
@@ -191,7 +191,7 @@ def is_inside_small_boxes(small_boxes, point):
             
     return False
 
-def getBalls(frame, polygon_pts, small_boxes):
+def getBalls(frame, polygon_pts, small_boxes, red_cross_polygon):
     global ball_id  # Access the global ball_id variable
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -205,7 +205,7 @@ def getBalls(frame, polygon_pts, small_boxes):
         circles = np.uint16(np.around(circles))
         for i in circles[0, :]:
             center = (i[0], i[1])
-            if cv2.pointPolygonTest(np.array(polygon_pts), center, False) >= 0 and not any(cv2.pointPolygonTest(np.array(box_pts), center, False) > 0 for box_pts in small_boxes):
+            if cv2.pointPolygonTest(np.array(polygon_pts), center, False) >= 0 and not any(cv2.pointPolygonTest(np.array(box_pts), center, False) > 0 for box_pts in small_boxes) and not cv2.pointPolygonTest(np.array(red_cross_polygon), center, False) > 0:
                 ball_id = 1
                 detected_balls.append({
                     'id': ball_id,
@@ -214,12 +214,25 @@ def getBalls(frame, polygon_pts, small_boxes):
                 cv2.circle(frame, center, 5, (0, 100, 100), 3)
     return detected_balls
 
+def is_inside_rectangle(point, rect_center, width, height):
+    x, y = point
+    rect_x, rect_y = rect_center
+    half_width = width // 2
+    half_height = height // 2
+    if (
+        x >= rect_x - half_width and
+        x <= rect_x + half_width and
+        y >= rect_y - half_height and
+        y <= rect_y + half_height
+    ):
+        return True
+    return False
 
 def detect_red(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Define the lower and upper red color ranges in HSV
-    hsv_values = {'hmin': 0, 'smin': 150, 'vmin': 175, 'hmax': 10, 'smax': 255, 'vmax': 255}
+    hsv_values = {'hmin': 0, 'smin': 70, 'vmin': 50, 'hmax': 10, 'smax': 255, 'vmax': 255}
     """
     lower_red1 = np.array([0, 70, 50])
     upper_red1 = np.array([10, 255, 255])
@@ -245,7 +258,58 @@ def detect_red(frame):
     # Draw contours on the frame
     cv2.drawContours(frame, contours, -1, (0, 255, 0), 2)
 
-    return mask
+    return contours
+def detect_red_cross(frame, polygon_pts):
+    # Convert the frame to the HSV color space
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    # Define the HSV values for the red color
+    lower_red = np.array([0, 100, 100])
+    upper_red = np.array([10, 255, 255])
+
+    # Threshold the HSV image to get only red colors
+    mask_red = cv2.inRange(hsv, lower_red, upper_red)
+
+    # Apply morphological operations to remove noise
+    kernel = np.ones((5, 5), np.uint8)
+    mask_red = cv2.morphologyEx(mask_red, cv2.MORPH_OPEN, kernel)
+
+    # Find contours of red regions
+    contours_red, _ = cv2.findContours(mask_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Find the red cross
+    red_cross_polygon = None
+    for contour in contours_red:
+        x, y, w, h = cv2.boundingRect(contour)
+        x = x - 15
+        y = y - 15
+        w = w + 30
+        h = h + 30
+        aspect_ratio = w / float(h)
+        area = cv2.contourArea(contour)
+        if cv2.pointPolygonTest(polygon_pts, (int(x), int(y)), False) < 0:
+            continue
+        # Adjust the threshold values as needed
+        if aspect_ratio >= 0.4 and aspect_ratio <= 1.6 and area > 500:
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+            # Return the coordinates of the vertices of the bounding rectangle
+            red_cross_polygon = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
+            break
+
+    return red_cross_polygon
+
+def red_contors(frame):
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    hsv_values = {'hmin': 0, 'smin': 150, 'vmin': 175, 'hmax': 10, 'smax': 255, 'vmax': 255}
+
+    # Get a binary image isolating the red pixels
+    lower_red = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
+    upper_red = np.array([hsv_values['hmax'], hsv_values['smax'], hsv_values['vmax']])
+    red_mask = cv2.inRange(hsv, lower_red, upper_red)
+    
+    red_contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    return red_contours
 
 def calculate_robotangle(robot_position, pink_position):
     if any(val is None for val in (robot_position, pink_position)):
@@ -541,7 +605,7 @@ Coordinates at click: 1630, 948
 Coordinates at click: 405, 929
 Coordinates at click: 445, 64"""
 #hardcoded_coordinates = [(466, 168), (470, 917), (1539, 905), (1486, 165)]
-hardcoded_coordinates = [(434, 150), (465, 973), (1560, 944), (1558, 134)]
+hardcoded_coordinates = [(394, 93), (390, 954), (1582, 1019), (1631, 105)]
 def draw_circles_at_coordinates(frame):
     # Define a list of hardcoded coordinates
  
@@ -573,26 +637,29 @@ def draw_circles_at_coordinates(frame):
 
 def draw_line_points(frame):
     num = 180
-    
     # Draw a line between the 1st and 2nd coordinates
     left_start = (hardcoded_coordinates[0][0] + num, hardcoded_coordinates[0][1] + num)
     left_end = (hardcoded_coordinates[1][0] + num, hardcoded_coordinates[1][1] - num)
     cv2.line(frame, left_start, left_end, color=(0, 255, 0), thickness=2)
+    cv2.putText(frame, "left", left_start, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
     # Draw a line between the 3rd and 4th coordinates
     right_start = (hardcoded_coordinates[2][0] - num, hardcoded_coordinates[2][1] - num)
     right_end = (hardcoded_coordinates[3][0] - num, hardcoded_coordinates[3][1] + num)
     cv2.line(frame, right_start, right_end, color=(0, 255, 0), thickness=2)
+    cv2.putText(frame, "right", right_start, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
     # Draw a line between the first and fourth coordinates
     upper_start = (hardcoded_coordinates[0][0] + num, hardcoded_coordinates[0][1] + num)
     upper_end = (hardcoded_coordinates[3][0] - num, hardcoded_coordinates[3][1] + num)
     cv2.line(frame, upper_start, upper_end, color=(0, 255, 0), thickness=2)
+    cv2.putText(frame, "right", right_start, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
     # Draw a line between the 2nd and 3rd coordinates
     down_start = (hardcoded_coordinates[1][0] + num, hardcoded_coordinates[1][1] - num)
     down_end = (hardcoded_coordinates[2][0] - num, hardcoded_coordinates[2][1] - num)
     cv2.line(frame, down_start, down_end, color=(0, 255, 0), thickness=2)
+    cv2.putText(frame, "down", down_start, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
     return (left_start, left_end), (right_start, right_end), (upper_start, upper_end), (down_start, down_end)
 
@@ -691,7 +758,8 @@ safepoint = False
 prepoint = False
 prepointmarked = False
 forcedgotogoal = False
-
+firstpushstart = False
+red_cross_centers = None
 while retry:
     try:
         # Loop over frames from the video stream
@@ -710,15 +778,16 @@ while retry:
             
             # Detect the white balls and get valid contour coordinates and graph
             #frame, ball_centers, graph = detect_white_balls(frame, polygon_pts)
+            redcross = detect_red_cross(frame, polygon_pts)
 
-            ball_centers = getBalls(frame, polygon_pts, small_boxes)
+            ball_centers = getBalls(frame, polygon_pts, small_boxes, redcross)
             #ball_centers = detect_white_balls(frame, polygon_pts)
             pink = detect_pink(frame)
 
             # Find the starting point on the table tennis table
             start = robot[:2] if robot is not None else None
             boundaries = draw_line_points(frame)
-
+            #cross = detect_cross(frame)
             # Check if the starting point was found
             if start is None:
                 print("Starting point not found. Adjust camera position or choose a different starting point.")
@@ -754,18 +823,49 @@ while retry:
                 # Draw a circle at the previous center coordinates
                 cv2.circle(frame, (prev_center_x2, center_y), 5, color=(0, 0, 255), thickness=-1)
                 cv2.line(frame, (prev_center_x, center_y), (center_x, center_y), (0, 0, 255), 2)
-
+                
                 #cv2.line(frame, (center_x, center_y), (center_x2, center_y2), (0, 0, 255), 2)
                 # Filter ball_centers - keep only those that are inside the polygon
                 #inside_ball_centers = [pt for pt in ball_centers if cv2.pointPolygonTest(polygon_pts, pt, False) >= 0]
-            
+                """
+                testcontors = red_contors(frame)
+                # If the red cross centers have not been computed yet
+                if red_cross_centers is None:
+                    red_cross_centers = []
+                    for contour in testcontors:
+                        if cv2.contourArea(contour) < 5:
+                            continue
+
+                        for point in contour:
+                            point = tuple(point[0])  # convert from [[x y]] to (x, y)
+                            if cv2.pointPolygonTest(polygon_pts, (int(point[0]), int(point[1])), False) >= 0:
+                                grid_point = (point[0] // 10, point[1] // 10)  # Convert from pixel coordinates to grid coordinates
+                                red_cross_centers.append(point)
+                                cv2.circle(frame, point, 5, (255, 255, 255), -1)  # Draw the center of the red cross in light blue
+
+                        #print(f"Red Cross at: {red_cross_centers}")
+                """
+                num = 80
+                # top left corner
+                left_start = (hardcoded_coordinates[0][0] + num, hardcoded_coordinates[0][1] + num)
+                #top right corner
+                upper_end = (hardcoded_coordinates[3][0] - num, hardcoded_coordinates[3][1] + num)
+                #bottom left corner
+                down_start = (hardcoded_coordinates[1][0] + num, hardcoded_coordinates[1][1] - num)
+                #bottom right corner
+                right_start = (hardcoded_coordinates[2][0] - num, hardcoded_coordinates[2][1] - num)
                 # CORNER TO PUSH THE CROSS
-                cv2.circle(frame, (hardcoded_coordinates[2][0] - 80, hardcoded_coordinates[2][1] - 80), 5, (0, 255, 255), -1)
+                cv2.circle(frame, (upper_end), 5, (0, 255, 255), -1)
+                # Bottom right corner
+                #cv2.circle(frame, (hardcoded_coordinates[2][0] - 80, hardcoded_coordinates[2][1] - 80), 5, (0, 255, 255), -1)
                 
                 if pushstart:
-                    getdistance = distance(start, (hardcoded_coordinates[2][0] - 80, hardcoded_coordinates[2][1] - 80))
+                    getdistance = distance(start, (upper_end))
                     robo_angle = angle = calculate_angle(robot, pink, (prev_center_x2, center_y))
-                    if getdistance < 100:
+                    if not firstpushstart:
+                        firstpushstart = True
+                        pushstarttime = time.time()
+                    if getdistance < 100 or (time.time() - pushstarttime > 10):
                         pushstart = False
                         turnback = 100
                         start_time = time.time()
@@ -823,6 +923,7 @@ while retry:
 
                     if time.time() - last_update_time >= 300:
                         forcedgotogoal = True
+                        last_update_time = time.time() + 200
                     #waypoint = [0, 0]
                     if len(ball_centers) <= 0 or forcedgotogoal:
                         #closest_ball = (prev_center_x, center_y)
