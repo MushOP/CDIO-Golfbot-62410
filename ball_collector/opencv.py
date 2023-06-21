@@ -6,8 +6,11 @@ app = Flask(__name__)
 import threading
 import time
 import traceback
+import logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
-last_update_time = time.time() - 5
+last_update_time = time.time()
 
 # Create a VideoCapture object to read from the camera
 cap = cv2.VideoCapture(0)
@@ -78,8 +81,8 @@ def detect_pink(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Define the HSV values for the green rectangle
-    #hsv_values = {'hmin': 129, 'smin': 0, 'vmin': 97, 'hmax': 180, 'smax': 197, 'vmax': 255}
-    hsv_values = {'hmin': 150, 'smin': 50, 'vmin': 50, 'hmax': 180, 'smax': 255, 'vmax': 255}
+    hsv_values = {'hmin': 129, 'smin': 0, 'vmin': 97, 'hmax': 180, 'smax': 197, 'vmax': 255}
+    #hsv_values = {'hmin': 150, 'smin': 50, 'vmin': 50, 'hmax': 180, 'smax': 255, 'vmax': 255}
     #hsv_values = {'hmin': 150, 'smin': 100, 'vmin': 100, 'hmax': 200, 'smax': 255, 'vmax': 255}
     #hsv_values = {'hmin': 170, 'smin': 50, 'vmin': 50, 'hmax': 180, 'smax': 255, 'vmax': 255}
     lower_green = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
@@ -372,12 +375,16 @@ angle_checked = False
 turnback = 100000
 goforward = 100000
 turnamt = 0
+turnleft = 0
+turnright = 0
 turnbackforced = 10000
+turngoalpoint = 0
+pushstart = True 
 global goal2
 @app.route('/', methods=['GET'])
 def get_angle():
     global angle_checked  # Declare angle_checked and angle_checked2 as global
-    global turnamt
+    global turnamt, turnleft, turnright, pushstart, turngoalpoint
     test = 0
     switch_cases = {
         'backward': lambda: jsonify({'backward': turnback}),
@@ -388,14 +395,13 @@ def get_angle():
         'right': lambda: jsonify({'right': robo_angle}),
         'left': lambda: jsonify({'left': robo_angle}),
         'forward': lambda: jsonify({'forward': goforward}),
+        'forward_cross': lambda: jsonify({'forward_cross': (getdistance/2)}),
         'wait': lambda: jsonify({'wait': robo_angle})
     }
 
     case = 'wait'  # Default case
     goal2 = False
-    if robo_angle <= -40 and robo_angle >= -35 and goal:
-        goal2 = True
-    print("robot angle =", robo_angle)
+    #print("robot angle =", robo_angle)
     if turnback <= 100 or turnbackforced <= 110:
         print("turnback!!!")
         if turnamt < 10:
@@ -405,9 +411,12 @@ def get_angle():
             move_backward = False
     elif goforward <= 100:
         case = 'forward'
-    elif -1 <= robo_angle <= 1 and goal:
+    elif pushstart:
+        case = 'forward_cross'
+    elif -0.5 <= robo_angle <= 0.5 and goal:
         print("GOOOOOOOOOAL")
         case = 'goal_point'
+        turngoalpoint += 1
         turnamt = 0
     #elif robo_angle > 1 and goal:
         #case = 'goal_left'
@@ -415,21 +424,24 @@ def get_angle():
         #case = 'goal_right'
     elif -1 <= robo_angle <= 1:
         print("Aligned. Moving towards the ball...")
-        print("distance =", getdistance, " test = ", test)
+        #print("distance =", getdistance, " test = ", test)
         if getdistance <= 200:
             print("HIT TEST")
-            test = 80
+            test = 75
         case = 'onpoint'
         turnamt = 0
     elif robo_angle > 1:
         print("Turning right to align with the ball...", robo_angle)
         case = 'right'
         turnamt = 0
-
+        turnright += 1
+        turnleft = 0
     elif robo_angle < -1:
         print("Turning left to align with the ball...", robo_angle)
         case = 'left'
         turnamt = 0
+        turnright = 0
+        turnleft += 1
 
     return switch_cases[case]()  # Execute the corresponding switch case
 
@@ -529,7 +541,7 @@ Coordinates at click: 1630, 948
 Coordinates at click: 405, 929
 Coordinates at click: 445, 64"""
 #hardcoded_coordinates = [(466, 168), (470, 917), (1539, 905), (1486, 165)]
-hardcoded_coordinates = [(389, 141), (369, 1012), (1601, 994), (1555, 119)]
+hardcoded_coordinates = [(434, 150), (465, 973), (1560, 944), (1558, 134)]
 def draw_circles_at_coordinates(frame):
     # Define a list of hardcoded coordinates
  
@@ -596,10 +608,8 @@ def draw_line_to_nearest_boundary(frame, ball, boundaries):
     nearest_boundary_end = None
     
     for start, end in boundaries:
-        # Formula to calculate the distance from point to line
-        numerator = abs((end[1] - start[1]) * ball[0] - (end[0] - start[0]) * ball[1] + end[0] * start[1] - end[1] * start[0])
-        denominator = np.sqrt((end[1] - start[1]) ** 2 + (end[0] - start[0]) ** 2)
-        distance = numerator / denominator
+        nearest_point_on_line = get_nearest_point_on_line(ball, start, end)
+        distance = np.sqrt((nearest_point_on_line[0] - ball[0]) ** 2 + (nearest_point_on_line[1] - ball[1]) ** 2)
 
         if distance < min_distance:
             min_distance = distance
@@ -608,7 +618,10 @@ def draw_line_to_nearest_boundary(frame, ball, boundaries):
     
     # Draw the line from ball to nearest boundary
     if nearest_boundary_start and nearest_boundary_end:
-        nearest_point_on_line = get_nearest_point_on_line(ball, nearest_boundary_start, nearest_boundary_end)
+        line_length = 200  # Define the desired length of the line
+
+        nearest_point_on_line = get_nearest_point_on_line(ball, nearest_boundary_start, nearest_boundary_end, line_length)
+        #nearest_point_on_line[0][0] = int(nearest_point_on_line[0][0]) + 5
         
         # Draw the blue line from ball to nearest point on the boundary
         cv2.line(frame, ball, nearest_point_on_line, color=(255, 0, 0), thickness=2)
@@ -620,12 +633,17 @@ def draw_line_to_nearest_boundary(frame, ball, boundaries):
     
     return False
 
-def get_nearest_point_on_line(point, line_start, line_end):
+def get_nearest_point_on_line(point, line_start, line_end, line_length=200):
     line_vec = np.array(line_end) - np.array(line_start)
     point_vec = np.array(point) - np.array(line_start)
     line_len = np.dot(line_vec, line_vec)
     factor = np.dot(point_vec, line_vec) / line_len
     nearest_point = np.array(line_start) + factor * line_vec
+    # Clamp factor between 0 and 1
+    factor = max(0, min(1, factor))
+
+    nearest_point = np.array(line_start) + factor * line_vec
+    #nearest_point[0] += 80  # Add +10 to the x-coordinate of nearest_point
     return tuple(map(int, nearest_point))
 
 
@@ -672,7 +690,7 @@ start_time = time.time()
 safepoint = False
 prepoint = False
 prepointmarked = False
-move_backward = False  # Add this flag outside the loop
+forcedgotogoal = False
 
 while retry:
     try:
@@ -681,7 +699,7 @@ while retry:
             # Read a frame from the video stream
             ret, frame = cap.read()
             cap.set(cv2.CAP_PROP_FPS, 30)
-
+            
             #frame = white_balance(frame)
             # Draw circles and get the polygon points
             polygon_pts, small_boxes = draw_circles_at_coordinates(frame)
@@ -705,7 +723,6 @@ while retry:
             if start is None:
                 print("Starting point not found. Adjust camera position or choose a different starting point.")
             else:
-                
                 draw_line(frame, start, pink, (0, 255, 0), 2)
                 
                 # Find the frame center
@@ -719,7 +736,7 @@ while retry:
                 # Calculate the center of the third and fourth coordinates
                 center_x2 = int((hardcoded_coordinates[2][0] + hardcoded_coordinates[3][0]) / 2)
                 center_y2 = int((hardcoded_coordinates[2][1] + hardcoded_coordinates[3][1]) / 2)
-
+                
                 # Draw a circle at the center of the first two coordinates
                 cv2.circle(frame, (center_x, center_y), 5, (0, 255, 255), -1)
             
@@ -735,17 +752,38 @@ while retry:
                 # Calculate the coordinates 200 pixels before the center
                 prev_center_x2 = prev_center_x + 330        
                 # Draw a circle at the previous center coordinates
-                cv2.circle(frame, (prev_center_x2, center_y - 10), 5, color=(0, 0, 255), thickness=-1)
-                #cv2.line(frame, (prev_center_x, center_y), (center_x, center_y), (0, 0, 255), 2)
+                cv2.circle(frame, (prev_center_x2, center_y), 5, color=(0, 0, 255), thickness=-1)
+                cv2.line(frame, (prev_center_x, center_y), (center_x, center_y), (0, 0, 255), 2)
 
-                cv2.line(frame, (center_x, center_y), (center_x2, center_y2), (0, 0, 255), 2)
+                #cv2.line(frame, (center_x, center_y), (center_x2, center_y2), (0, 0, 255), 2)
                 # Filter ball_centers - keep only those that are inside the polygon
                 #inside_ball_centers = [pt for pt in ball_centers if cv2.pointPolygonTest(polygon_pts, pt, False) >= 0]
+            
+                # CORNER TO PUSH THE CROSS
+                cv2.circle(frame, (hardcoded_coordinates[2][0] - 80, hardcoded_coordinates[2][1] - 80), 5, (0, 255, 255), -1)
+                
+                if pushstart:
+                    getdistance = distance(start, (hardcoded_coordinates[2][0] - 80, hardcoded_coordinates[2][1] - 80))
+                    robo_angle = angle = calculate_angle(robot, pink, (prev_center_x2, center_y))
+                    if getdistance < 100:
+                        pushstart = False
+                        turnback = 100
+                        start_time = time.time()
+                
+                if time.time() - start_time > 2:
+                    turnback = 10000
 
+                if turngoalpoint >= 3:
+                    turngoalpoint = 0
+                    forcedgotogoal = False
+                    last_update_time = time.time()
+                    
+                """
                 # Find the shortest path to the closest ball using Dijkstra's algorithm
                 greendist = cv2.pointPolygonTest(polygon_pts, tuple(start), True)
                 pinkdist = cv2.pointPolygonTest(polygon_pts, tuple(pink), True)
 
+                
                 if (pinkdist >= 0 and pinkdist <= 100) and (greendist >= 0 and greendist <= 100) and greendist > pinkdist:
                     print("pink hit = ", pinkdist)
                     print("green hit = ", greendist)
@@ -759,110 +797,128 @@ while retry:
                 elif not move_backward:
                     turnback = 10000
                     goforward = 10000
+                """
+                if not pushstart:
+                    # Calculate the elapsed time in seconds
+                    elapsed_time = int(time.time() - last_update_time)
 
-                #waypoint = [0, 0]
-                if len(ball_centers) <= 0:
-                    #closest_ball = (prev_center_x, center_y)
-                    closest_ball = {
-                        'id': 'Goal',
-                        'center': (prev_center_x, center_y)
-                    }
-                    #previous_ball = closest_ball  # Update the previous_ball for the next iteration
-                    #print(distance(start, closest_ball))
-                    if not distancecheck:
-                        robo_angle = angle = calculate_angle(robot, pink, closest_ball['center'])
-                    else:
-                        robo_angle = angle = calculate_angle(robot, pink, (center_x2, center_y2))
-                    #print(robo_angle)
-                    getdistance = distance(start, closest_ball['center'])
-                    if getdistance < 50:
-                        distancecheck = True
-                        print("distance is less than 50: ", getdistance)
-                        robo_angle = angle = calculate_angle(robot, pink, (center_x2, center_y2))
-                        goal = True
-                        # if robo_angle > -35 and robo_angle < -40:
-                        #     print("GOAL2 TRUE!!!!!!!!!!!!!!!!!!!!!!!")
-                        #     goal2 = True
-                        #waypoint = calculate_waypoint(start, closest_ball, polygon_pts)
-                else:
-                    if not safepoint:
-                        if closest_ball is None or (previous_ball is not None and previous_ball['id'] not in [ball['id'] for ball in ball_centers]):
-                            #print(previous_ball in ball_centers)
-                            #print("closest_ball = ", closest_ball, " previous_ball = ", previous_ball, " ball_centers = ", ball_centers)
-                            print("closest ball = ", safepoint)
-                            closest_ball = selected_ball(start, ball_centers)
-                
-                    previous_ball = closest_ball
-                    if prepoint:
-                        robo_angle = angle = calculate_angle(robot, pink, prepoint)
-                        getdistance = distance(start, prepoint)
-                    else:
-                        robo_angle = angle = calculate_angle(robot, pink, closest_ball['center'])
-                        getdistance = distance(start, closest_ball['center'])
-                    goal = False
-                    goal2 = False
-                    distancecheck = False
-                    # Check if the closest ball is close to the polygon_pts polygon
+                    # Format the elapsed time as minutes:seconds
+                    minutes = elapsed_time // 60
+                    seconds = elapsed_time % 60
+                    timer_text = f"Time: {minutes:02d}:{seconds:02d}"
 
-                if closest_ball is not None and start is not None and frame is not None and pink is not None:
-                    distance_to_polygon = calculate_distance_to_polygon(closest_ball['center'], polygon_pts)
-
-                    if angle is not None:
-                        cv2.putText(frame, "Angle: {:.2f}".format(angle), (frame_center), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)  # Draw lines from the robot to each white ball
-                    if distance(start, closest_ball['center']) >= distance_threshold:
-                        cv2.line(frame, start, closest_ball['center'], (255, 255, 0), 2)
-                        cv2.putText(frame, "Tracking Ball {}".format(closest_ball['id']), (40, 40), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 255), 2)
-                        
-                        if distance_to_polygon < 180 and not prepointmarked:
-                            prepoint = draw_line_to_nearest_boundary(frame, closest_ball['center'], boundaries)
-
-                            if prepoint and distance(prepoint, start) < 10:
-                                print("distance = ", distance(prepoint, closest_ball['center']))
-                                prepoint = None
-                                prepointmarked = True
-                    else:
-                        print("HIT ELSE***************")
-                        safepoint = False
-                        start_time = time.time()
+                    # Draw the timer text in the top-left corner of the frame
+                    cv2.putText(frame, timer_text, (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                    
+                    # Reset the ball if it is stuck
+                    if turnright > 6 or turnleft > 6:
+                        print("resseting because to many turns, turnright = ", turnright, " turnleft = ", turnleft)
+                        turnamt = 0
+                        prepointmarked = False
+                        prepoint = None
                         closest_ball = None
+                        previous_ball = None
+                        turnright = 0
+                        turnleft = 0
 
-                        if prepointmarked:
-                            print("prepointmarked = True")
-                            move_backward = True  # Set the flag
-                            turnback = 120
-                            turnamt = 0
-                            prepointmarked = False
-                            prepoint = None
-                            start_time = time.time()
-                        
-                    #if move_backward:
-                    if time.time() - start_time >= 1:
-                        print("hit timer***************")
-                        move_backward = False
-                        print("turnback = ", turnback)
-                        turnback = 100000
-
-
-                    if turnamt > 30:
-                        print("going to safepoint")
-                        safepoint = True
+                    if time.time() - last_update_time >= 300:
+                        forcedgotogoal = True
+                    #waypoint = [0, 0]
+                    if len(ball_centers) <= 0 or forcedgotogoal:
+                        #closest_ball = (prev_center_x, center_y)
                         closest_ball = {
-                            'id': 'Safepoint',
+                            'id': 'Goal',
                             'center': (prev_center_x, center_y)
                         }
-                        #start_time = time.time()
+                        prepointmarked = False
+                        #previous_ball = closest_ball  # Update the previous_ball for the next iteration
+                        #print(distance(start, closest_ball))
+                        if not distancecheck:
+                            robo_angle = angle = calculate_angle(robot, pink, closest_ball['center'])
+                        else:
+                            robo_angle = angle = calculate_angle(robot, pink, (prev_center_x2, center_y))
+                        #print(robo_angle)
+                        getdistance = distance(start, closest_ball['center'])
+                        if getdistance < 10:
+                            distancecheck = True
+                            print("distance is less than 10: ", getdistance)
+                            robo_angle = angle = calculate_angle(robot, pink, (prev_center_x2, center_y))
+                            goal = True
+                    else:
+                        if not safepoint:
+                            if closest_ball is None or (previous_ball is not None and previous_ball['id'] not in [ball['id'] for ball in ball_centers]):
+                                #print("closest ball = ", safepoint)
+                                closest_ball = selected_ball(start, ball_centers)
+                    
+                        previous_ball = closest_ball
+                        if prepoint:
+                            robo_angle = angle = calculate_angle(robot, pink, prepoint)
+                            getdistance = distance(start, prepoint)
+                        else:
+                            robo_angle = angle = calculate_angle(robot, pink, closest_ball['center'])
+                            getdistance = distance(start, closest_ball['center'])
+                        goal = False
+                        goal2 = False
+                        distancecheck = False
+                        # Check if the closest ball is close to the polygon_pts polygon
 
-                    #cv2.line(frame, waypoint, closest_ball, (255, 255, 0), 2)
-                    #cv2.circle(frame, waypoint, 5, (0, 0, 255), -1)  # Draw a circle at the closest ball
-                    # Display the original frame with bounding boxes and lines
-            cv2.imshow('Frame', frame)
+                    if closest_ball is not None and start is not None and frame is not None and pink is not None:
+                        distance_to_polygon = calculate_distance_to_polygon(closest_ball['center'], polygon_pts)
 
-            # Wait
-            key = cv2.waitKey(1) & 0xFF
+                        if prepointmarked:
+                            turnback = 100
+                            turnamt = 0
 
-            # If the 'q' key is pressed, break from the loop
-            if key == ord('q'):
-                break
+                        if angle is not None:
+                            cv2.putText(frame, "Angle: {:.2f}".format(angle), (frame_center), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)  # Draw lines from the robot to each white ball
+                        if distance(start, closest_ball['center']) >= distance_threshold:
+                            cv2.line(frame, start, closest_ball['center'], (255, 255, 0), 2)
+                            cv2.putText(frame, "Tracking Ball {}".format(closest_ball['id']), (40, 40), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 255), 2)
+                            
+                            if distance_to_polygon < 180 and not prepointmarked:
+                                prepoint = draw_line_to_nearest_boundary(frame, closest_ball['center'], boundaries)
+
+                                if prepoint and distance(prepoint, start) < 20:
+                                    print("distance = ", distance(prepoint, closest_ball['center']))
+                                    prepoint = None
+                                    prepointmarked = True
+                        else:
+                            print("HIT ELSE***************")
+                            safepoint = False
+                            #start_time = time.time()
+                            closest_ball = None
+
+                            if prepointmarked:
+                                print("prepointmarked = True")
+                                turnback = 100
+                                turnamt = 0
+                                prepointmarked = False
+                                prepoint = None
+                                start_time = time.time()
+                            
+                        if time.time() - start_time >= 2:
+                            turnback = 10000
+
+                        if turnamt > 30:
+                            print("going to safepoint")
+                            safepoint = True
+                            closest_ball = {
+                                'id': 'Safepoint',
+                                'center': (prev_center_x, center_y)
+                            }
+                            #start_time = time.time()
+
+                        #cv2.line(frame, waypoint, closest_ball, (255, 255, 0), 2)
+                        #cv2.circle(frame, waypoint, 5, (0, 0, 255), -1)  # Draw a circle at the closest ball
+                        # Display the original frame with bounding boxes and lines
+                cv2.imshow('Frame', frame)
+
+                # Wait
+                key = cv2.waitKey(1) & 0xFF
+
+                # If the 'q' key is pressed, break from the loop
+                if key == ord('q'):
+                    break
     except Exception as e:
         traceback.print_exc()
         retry = True
