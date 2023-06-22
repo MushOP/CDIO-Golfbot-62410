@@ -82,9 +82,6 @@ while True:
         back_arm = Motor(Port.A, Direction.COUNTERCLOCKWISE, [12, 36])
         back_arm.control.limits(speed=60, acceleration=120)
         back_arm.run(60)
-    elif 'turnback' in command:
-        robot.stop()
-        robot.drive(-100,-10)
     elif 'forward_cross' in command:
         robot.drive(280,0)
     else:
