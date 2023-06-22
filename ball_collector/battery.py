@@ -2,6 +2,9 @@
 from pybricks.hubs import EV3Brick
 import time
 
+
+# Check the current battery on your EV3 Brick
+
 ev3 = EV3Brick()
 
 while True:
