@@ -39,7 +39,7 @@ def distance(pt1, pt2):
 def detect_robot(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    # Define the HSV values for the green rectangle
+    # HSV values for green, depending on lighting
     hsv_values = {'hmin': 29, 'smin': 45, 'vmin': 27, 'hmax': 92, 'smax': 255, 'vmax': 255}
     #hsv_values = {'hmin': 40, 'smin': 75, 'vmin': 20, 'hmax': 80, 'smax': 255, 'vmax': 255}
     lower_green = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
@@ -77,7 +77,7 @@ def detect_robot(frame):
 def detect_pink(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    # Define the HSV values for the green rectangle
+    # HSV for pink, depending on lighting
     #hsv_values = {'hmin': 129, 'smin': 0, 'vmin': 97, 'hmax': 180, 'smax': 197, 'vmax': 255}
     hsv_values = {'hmin': 150, 'smin': 50, 'vmin': 50, 'hmax': 180, 'smax': 255, 'vmax': 255}
     #hsv_values = {'hmin': 150, 'smin': 100, 'vmin': 100, 'hmax': 200, 'smax': 255, 'vmax': 255}
@@ -109,9 +109,9 @@ def detect_pink(frame):
         center = np.mean(box, axis=0)
         return center
 
-# Returns a of table tennis balls with the specific definition in houghcircles.
+# Returns a list of table tennis balls with the specific definition in houghcircles.
 def getBalls(frame, polygon_pts, small_boxes, red_cross_polygon):
-    global ball_id  # Access the global ball_id variable
+    global ball_id
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     gray = cv2.medianBlur(gray, 3)
@@ -137,7 +137,7 @@ def getBalls(frame, polygon_pts, small_boxes, red_cross_polygon):
 def detect_red_cross(frame, polygon_pts):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    # Define the HSV values for the red color
+    # HSV for red
     lower_red = np.array([0, 100, 100])
     upper_red = np.array([10, 255, 255])
 
