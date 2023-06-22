@@ -616,7 +616,7 @@ while retry:
                             turnamt = 0
 
                         if angle is not None:
-                            cv2.putText(frame, "Angle: {:.2f}".format(angle), (frame_center), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)  # Draw lines from the robot to each white ball
+                            cv2.putText(frame, "Angle: {:.2f}".format(angle), (frame_center), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)
                         # If the robot is above 50 in range (meaning it hasn't collected it yet)
                         if distance(start, closest_ball['center']) >= distance_threshold:
                             cv2.line(frame, start, closest_ball['center'], (255, 255, 0), 2)
