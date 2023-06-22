@@ -1,44 +1,44 @@
 import cv2
 
-# Create a VideoCapture object to read from the camera
+# Creating a VideoCapture object to read from the camera
 cap = cv2.VideoCapture(0)
 
-# List to store coordinates
+# List to store coordinates of all the choicen points
 coords = []
 
-# Callback function for mouse events
+# Callback function that prints the coordinates for the given point
 def mouse_callback(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
-        # Add the coordinates to the list
+        # Adds the coordinates 
         coords.append((x, y))
         print(f"Coordinates at click: {x}, {y}")
 
-# Register the mouse callback function
+# Registers callback function
 cv2.namedWindow('Frame')
 cv2.setMouseCallback('Frame', mouse_callback)
 
-# Loop over frames from the video stream
+# Loop over frames
 while True:
-    # Read a frame from the video stream
+    # Read a frame 
     ret, frame = cap.read()
 
-    # If there were any clicks, draw circles at the click locations
+    # If mouse is clicked, make points at the click locations
     for coord in coords:
         cv2.circle(frame, coord, 5, (0, 0, 255), -1)
 
     # Display the frame
     cv2.imshow('Frame', frame)
 
-    # Wait
+  
     key = cv2.waitKey(1) & 0xFF
 
-    # If the 'q' key is pressed, break from the loop
+    # If  q key is pressed, break from the loop
     if key == ord('q'):
         break
 
-# After breaking the loop, print all stored coordinates
+#  Print all stored coordinates
 print(f"hardcoded_coordinates = {coords}")
 
-# Release the VideoCapture object and close all windows
+# Close everything
 cap.release()
 cv2.destroyAllWindows()
