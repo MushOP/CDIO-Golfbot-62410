@@ -10,11 +10,11 @@ import json
 import socket
 import time
 
-# This program requires LEGO EV3 MicroPython v2.0 or higher.
-# Click "Open user guide" on the EV3 extension tab for more information.
+# This program requires LEGO EV3 MicroPython v3.4.
 
 SERVER_IP = '192.168.1.117'  # Replace with the IP address of your server
 SERVER_PORT = 5001
+
 # Create a DriveBase object to control the motors
 ev3 = EV3Brick()
 left_wheel = Motor(Port.B) 
@@ -39,7 +39,6 @@ while True:
     response = ""
     while True:
         data = sock.recv(1024)
-        #print("data = ", data)
         if not data:
             break
         response += data.decode()
@@ -47,7 +46,7 @@ while True:
     header, _, body = response.partition("\r\n\r\n")
     command = json.loads(body)  # Moved JSON decoding here
     
-    # Assuming the response is in JSON format, you can parse it
+    # Assuming the response is in JSON format, you can parse it in to give the commands to the robot
     print("Parsed JSON:", command)
     if 'wait' in command:
         robot.stop()
