@@ -13,9 +13,10 @@ log.setLevel(logging.ERROR)
 
 last_update_time = time.time()
 
-# Create a VideoCapture object to read from the camera
+# Camera 1 is default on windows, 0 is default on mac.
 cap = cv2.VideoCapture(0)
 MAX_DISTANCE = 1000000
+
 # Loop through nodes(balls) and find the closest
 def closest_node(node, nodes):
     pt = []
