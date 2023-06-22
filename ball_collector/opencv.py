@@ -16,7 +16,7 @@ last_update_time = time.time()
 # Create a VideoCapture object to read from the camera
 cap = cv2.VideoCapture(0)
 MAX_DISTANCE = 1000000
-# Loop through nodes and find the closest
+# Loop through nodes(balls) and find the closest
 def closest_node(node, nodes):
     pt = []
     dist = 9999999
@@ -36,7 +36,6 @@ def distance(pt1, pt2):
 
 # Detect the green square
 def detect_robot(frame):
-    # Convert the frame to the HSV color space
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Define the HSV values for the green rectangle
@@ -75,7 +74,6 @@ def detect_robot(frame):
 
 # Function to detect the green rectangle (robot)
 def detect_pink(frame):
-    # Convert the frame to the HSV color space
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Define the HSV values for the green rectangle
@@ -86,18 +84,14 @@ def detect_pink(frame):
     lower_green = np.array([hsv_values['hmin'], hsv_values['smin'], hsv_values['vmin']])
     upper_green = np.array([hsv_values['hmax'], hsv_values['smax'], hsv_values['vmax']])
 
-    # Threshold the HSV image to get only green colors
     mask_green = cv2.inRange(hsv, lower_green, upper_green)
 
-    # Apply morphological operations to remove noise
     kernel = np.ones((10, 10), np.uint8)
     mask_green = cv2.morphologyEx(mask_green, cv2.MORPH_OPEN, kernel)
 
-    # Find contours of green regions
     contours_green, _ = cv2.findContours(mask_green, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Find the robot (green rectangle)
-    robot = None
+    # Find the pink rectangle
     largest_contour = None
     max_area = 0
     for contour in contours_green:
@@ -114,6 +108,7 @@ def detect_pink(frame):
         center = np.mean(box, axis=0)
         return center
 
+# Returns a of table tennis balls with the specific definition in houghcircles.
 def getBalls(frame, polygon_pts, small_boxes, red_cross_polygon):
     global ball_id  # Access the global ball_id variable
 
@@ -136,7 +131,8 @@ def getBalls(frame, polygon_pts, small_boxes, red_cross_polygon):
                 })
                 cv2.circle(frame, center, 5, (0, 100, 100), 3)
     return detected_balls
-    
+
+# Detect the red cross in the middle.    
 def detect_red_cross(frame, polygon_pts):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
@@ -144,7 +140,6 @@ def detect_red_cross(frame, polygon_pts):
     lower_red = np.array([0, 100, 100])
     upper_red = np.array([10, 255, 255])
 
-    # Threshold the HSV image to get only red colors
     mask_red = cv2.inRange(hsv, lower_red, upper_red)
 
     kernel = np.ones((5, 5), np.uint8)
@@ -152,7 +147,7 @@ def detect_red_cross(frame, polygon_pts):
 
     contours_red, _ = cv2.findContours(mask_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Find the red cross
+    # Detect the red cross
     red_cross_polygon = None
     for contour in contours_red:
         x, y, w, h = cv2.boundingRect(contour)
@@ -164,56 +159,48 @@ def detect_red_cross(frame, polygon_pts):
         area = cv2.contourArea(contour)
         if cv2.pointPolygonTest(polygon_pts, (int(x), int(y)), False) < 0:
             continue
-        # Adjust the threshold values as needed
+
         if aspect_ratio >= 0.4 and aspect_ratio <= 1.6 and area > 500:
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
-            # Return the coordinates of the vertices of the bounding rectangle
             red_cross_polygon = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
             break
 
     return red_cross_polygon
 
+# Get the angle for the pink and green rectangle only
 def calculate_robotangle(robot_position, pink_position):
     if any(val is None for val in (robot_position, pink_position)):
-        return 0  # Skip drawing the line if any value is None
+        return 0
 
-    # Calculate vectors
     robot_vector = np.array([robot_position[0] - pink_position[0], robot_position[1] - pink_position[1]])
     
-    # Calculate magnitudes
     robot_magnitude = np.linalg.norm(robot_vector)
     pink_magnitude = np.linalg.norm(pink_position)
     
-    # Avoid division by zero
     if robot_magnitude == 0 or pink_magnitude == 0:
         return 0
     
-    # Calculate dot product
     dot_product = np.dot(robot_vector, pink_position)
     
-    # Calculate cross product
     cross_product = np.cross(robot_vector, pink_position)
     
-    # Calculate cosine of angle
     cos_angle = dot_product / (robot_magnitude * pink_magnitude)
     
-    # Avoid values out of range due to floating-point inaccuracies
+    # Avoid values out of range
     cos_angle = np.clip(cos_angle, -1, 1)
     
-    # Calculate the angle in radians
     angle_rad = np.arccos(cos_angle)
     
-    # Calculate the angle in degrees
     angle_deg = np.degrees(angle_rad)
     
-    # Determine the sign of the angle based on the cross product
+    # Return minus if it's facing the wrong direction
     if cross_product > 0:
         angle_deg = -angle_deg
     
     return angle_deg
 
+# Get the angle for green, pink and ball.
 def calculate_angle(robot_position, pink_position, closest_ball_position):
-    # Calculate vectors
     robot_vector = np.array([robot_position[0] - pink_position[0], robot_position[1] - pink_position[1]])
     ball_vector = np.array([closest_ball_position[0] - pink_position[0], closest_ball_position[1] - pink_position[1]])
     
@@ -229,11 +216,12 @@ def calculate_angle(robot_position, pink_position, closest_ball_position):
     
     cos_angle = dot_product / (robot_magnitude * ball_magnitude)
     
-    # Avoid values out of range due to floating-point inaccuracies
+    # Avoid values out of range
     cos_angle = np.clip(cos_angle, -1, 1)
     
     angle = np.degrees(np.arccos(cos_angle))
     
+    # Return minus if it's facing the wrong direction
     if cross_product < 0:
         angle = -angle
 
@@ -253,7 +241,9 @@ turngoalpoint = 0
 pushstart = True 
 global goal2
 
+# Used for flask, a switch statement for each needed scenario. Handling each case is done client side (main.py)
 @app.route('/', methods=['GET'])
+# Sends both the angle and the distance needed.
 def get_angle():
     global angle_checked
     global turnamt, turnleft, turnright, pushstart, turngoalpoint
@@ -311,21 +301,23 @@ def get_angle():
 def run_flask_app():
     app.run(host='0.0.0.0', port=5001)
 
-# Start the Flask app on a separate thread
 flask_thread = threading.Thread(target=run_flask_app)
 flask_thread.start()
 
 global robo_angle
 
+# Coordiantes we get from getcoord.py
 hardcoded_coordinates = [(394, 93), (390, 954), (1582, 1019), (1631, 105)]
+# Connect the coordinates together to create a boundary,
 def draw_circles_at_coordinates(frame): 
-    # Define the size of the small box
+    # Define the size
     box_size = 80
 
     polygon_pts = np.array(hardcoded_coordinates, dtype=np.int32)
     polygon_pts = polygon_pts.reshape((-1, 1, 2))
     cv2.polylines(frame, [polygon_pts], isClosed=True, color=(255, 0, 0), thickness=2)
 
+    # Defines the corner boxes so that each corner can be labled as a deadzone later on
     small_boxes = []
     for coord in hardcoded_coordinates:
         top_left = (coord[0] - box_size, coord[1] - box_size)
@@ -339,6 +331,7 @@ def draw_circles_at_coordinates(frame):
 
     return polygon_pts, small_boxes
 
+# Draw a square in the middle, this is used for prepoint and prepointmarked. 
 def draw_line_points(frame):
     num = 180
     # Draw a line between the 1st and 2nd coordinates
@@ -390,16 +383,17 @@ def draw_line_to_nearest_boundary(frame, ball, boundaries):
         nearest_point_on_line = get_nearest_point_on_line(ball, nearest_boundary_start, nearest_boundary_end, line_length)
         #nearest_point_on_line[0][0] = int(nearest_point_on_line[0][0]) + 5
         
-        # Draw the blue line from ball to nearest point on the boundary
+        # Blue line to the nearest point on the boundary
         cv2.line(frame, ball, nearest_point_on_line, color=(255, 0, 0), thickness=2)
         
-        # Draw the green boundary line
+        # Draw the boundary itself here.
         cv2.line(frame, nearest_boundary_start, nearest_boundary_end, color=(0, 255, 0), thickness=2)
         
         return nearest_point_on_line
     
     return False
 
+# Helper funktion to get the nearest point for the ball to the green rectangle in the middle (draw_line_to_nearest_boundary).
 def get_nearest_point_on_line(point, line_start, line_end, line_length=200):
     line_vec = np.array(line_end) - np.array(line_start)
     point_vec = np.array(point) - np.array(line_start)
@@ -413,7 +407,8 @@ def get_nearest_point_on_line(point, line_start, line_end, line_length=200):
     return tuple(map(int, nearest_point))
 
 
-def draw_straight_line(image, start, end, color, thickness=2):
+# Makes us able to see if the angle is off for some reason but drawing a straight line outwards between the center of pink and green.
+def draw_straight_line(image, start, end, color):
     if any(val is None for val in (start, end, image, color)):
         return
     height, width = image.shape[:2]
@@ -421,12 +416,12 @@ def draw_straight_line(image, start, end, color, thickness=2):
     x1, y1 = start
     x2, y2 = end
 
-    if x1 == x2:  # Vertical line
+    if x1 == x2:
         x1 = x2 = max(0, min(x1, width - 1))
         y1 = 0
         y2 = height - 1
     else:
-        m = (y2 - y1) / (x2 - x1)  # Slope
+        m = (y2 - y1) / (x2 - x1)
         b = y1 - m * x1 
         
         x1 = 0
@@ -434,20 +429,21 @@ def draw_straight_line(image, start, end, color, thickness=2):
         x2 = width - 1
         y2 = int(m * x2 + b)
 
-    cv2.line(image, (x1, y1), (x2, y2), color, thickness)
+    cv2.line(image, (x1, y1), (x2, y2), color, 2)
     tempangle = calculate_robotangle(start, end)
-    cv2.putText(frame, "Robotangle: {:.2f}".format(tempangle), (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)  # Draw lines from the robot to each white ball
+    cv2.putText(frame, "Robotangle: {:.2f}".format(tempangle), (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)
 
+# Selects the cloest_ball by running the closest_node function and returning the result.
 closest_ball = None
 def selected_ball(robot, balls):
     closest_ball = closest_node(robot, balls)
     return closest_ball
 
-#Get the distance from the square, to the closest_ball
+# Get the distance from the square, to the closest_ball
 def calculate_distance_to_polygon(ball, polygon_pts):
     return cv2.pointPolygonTest(np.array(polygon_pts), ball, True)
 
-previous_ball = None  # Initialize previous_ball variable before the loop
+previous_ball = None
 retry = True
 distancecheck = False
 distance_threshold = 50
@@ -461,26 +457,23 @@ firstpushstart = False
 red_cross_centers = None
 while retry:
     try:
-        # Loop over frames from the video stream
         while True:
-            # Read a frame from the video stream
             ret, frame = cap.read()
             cap.set(cv2.CAP_PROP_FPS, 30)
             
-            # Draw circles and get the polygon points, get small square around corners as well
             polygon_pts, small_boxes = draw_circles_at_coordinates(frame)
             #polygon_pts1 = draw_circles_at_redcross(frame)
 
             # Detect the green rectangle (robot)
             robot = detect_robot(frame)
             
-            # Detect the white balls and get valid contour coordinates and graph
+            # Get the cross
             redcross = detect_red_cross(frame, polygon_pts)
 
+            # Get all the table tennis balls (orange and white)
             ball_centers = getBalls(frame, polygon_pts, small_boxes, redcross)
             pink = detect_pink(frame)
 
-            # Find the starting point on the table tennis table
             start = robot[:2] if robot is not None else None
             boundaries = draw_line_points(frame)
 
@@ -488,34 +481,31 @@ while retry:
             if start is None:
                 print("Starting point not found. Adjust camera position or choose a different starting point.")
             else:
-                draw_straight_line(frame, start, pink, (0, 255, 0), 2)
+                draw_straight_line(frame, start, pink, (0, 255, 0))
                 
-                # Find the frame center
+                
                 frame_height, frame_width = frame.shape[:2]
                 frame_center = (frame_width // 2, frame_height // 2)
 
                 # Mark the half of hardcoded coordinates as the goal (draw a circle)
                 center_x = int((hardcoded_coordinates[0][0] + hardcoded_coordinates[1][0]) / 2)
                 center_y = int((hardcoded_coordinates[0][1] + hardcoded_coordinates[1][1]) / 2)
+
                 # Calculate the center of the third and fourth coordinates
                 center_x2 = int((hardcoded_coordinates[2][0] + hardcoded_coordinates[3][0]) / 2)
                 center_y2 = int((hardcoded_coordinates[2][1] + hardcoded_coordinates[3][1]) / 2)
                 
-                # Draw a circle at the center of the first two coordinates
                 cv2.circle(frame, (center_x, center_y), 5, (0, 255, 255), -1)
-            
                 cv2.circle(frame, (center_x2, center_y2), 5, color=(0, 0, 255), thickness=-1)
     
 
-                # Calculate the coordinates 330 pixels before the center
                 prev_center_x = center_x + 330        
-                # Draw a circle at the previous center coordinates
+                # Draw a circle at the previous center coordinates with an offset of 330
                 cv2.circle(frame, (prev_center_x, center_y), 5, color=(0, 0, 255), thickness=-1)
                 cv2.line(frame, (prev_center_x, center_y), (center_x, center_y), (0, 0, 255), 2)
                 
-                # Calculate the coordinates 330 pixels before the center
+                
                 prev_center_x2 = prev_center_x + 330        
-                # Draw a circle at the previous center coordinates
                 cv2.circle(frame, (prev_center_x2, center_y), 5, color=(0, 0, 255), thickness=-1)
                 cv2.line(frame, (prev_center_x, center_y), (center_x, center_y), (0, 0, 255), 2)
                 
@@ -533,7 +523,7 @@ while retry:
                 # CORNER TO PUSH THE CROSS (changeable for each corner)
                 cv2.circle(frame, (upper_end), 5, (0, 255, 255), -1)
                 
-                # Fpr the first few seconds to push the square in a corner.
+                # Fpr the first few seconds, push the square in a corner.
                 if pushstart:
                     getdistance = distance(start, (upper_end))
                     robo_angle = angle = calculate_angle(robot, pink, (prev_center_x2, center_y))
@@ -549,21 +539,19 @@ while retry:
                 if time.time() - start_time > 2:
                     turnback = 10000
 
+                # If it keeps trying to return a ball after the forcedgotogoal, stop after 3 tries.
                 if turngoalpoint >= 3:
                     turngoalpoint = 0
                     forcedgotogoal = False
                     last_update_time = time.time()
                     
                 if not pushstart:
-                    # Calculate the elapsed time in seconds
                     elapsed_time = int(time.time() - last_update_time)
-
-                    # Format the elapsed time as minutes:seconds
                     minutes = elapsed_time // 60
                     seconds = elapsed_time % 60
                     timer_text = f"Time: {minutes:02d}:{seconds:02d}"
 
-                    # Draw the timer text in the top-left corner of the frame
+                    # Top left corner
                     cv2.putText(frame, timer_text, (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                     
                     # Reset the ball if it is stuck
@@ -581,6 +569,8 @@ while retry:
                     if time.time() - last_update_time >= 300:
                         forcedgotogoal = True
                         last_update_time = time.time() + 200
+
+                    # When it has to deliver to goal, meaning either we find no balls or we are forced.    
                     if len(ball_centers) <= 0 or forcedgotogoal:
                         closest_ball = {
                             'id': 'Goal',
@@ -600,6 +590,7 @@ while retry:
                             robo_angle = angle = calculate_angle(robot, pink, (prev_center_x2, center_y))
                             goal = True
                     else:
+                        # If we DO have balls, then get the closest_ball, if prepoint then go to that first.
                         if not safepoint:
                             if closest_ball is None or (previous_ball is not None and previous_ball['id'] not in [ball['id'] for ball in ball_centers]):
                                 closest_ball = selected_ball(start, ball_centers)
@@ -619,12 +610,10 @@ while retry:
                     if closest_ball is not None and start is not None and frame is not None and pink is not None:
                         distance_to_polygon = calculate_distance_to_polygon(closest_ball['center'], polygon_pts)
 
-                        # Turnback if we collected a bacll (robot distance < 50)
                         if prepointmarked:
                             turnback = 100
                             turnamt = 0
 
-                        # Display angle for the closest_ball (robot, pink, closest_ball)
                         if angle is not None:
                             cv2.putText(frame, "Angle: {:.2f}".format(angle), (frame_center), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 2)  # Draw lines from the robot to each white ball
                         # If the robot is above 50 in range (meaning it hasn't collected it yet)
@@ -668,7 +657,6 @@ while retry:
 
                 key = cv2.waitKey(1) & 0xFF
 
-                # If the 'q' key is pressed, break from the loop
                 if key == ord('q'):
                     break
     except Exception as e:
