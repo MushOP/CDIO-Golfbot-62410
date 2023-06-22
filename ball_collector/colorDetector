@@ -1,13 +1,13 @@
 import cv2
 import numpy as np
 
-# Define the HSV values dictionary
+# Define the HSV values 
 hsv_values = {'hmin': 140, 'smin': 100, 'vmin': 100, 'hmax': 180, 'smax': 255, 'vmax': 255}
 
-# Create a VideoCapture object to read from the camera
+# Create a VideoCapture to read from the camera
 cap = cv2.VideoCapture(0)
 
-# Callback function for mouse events
+# Callback function for mouse click
 def mouse_callback(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
         # Get the HSV value at the clicked pixel
@@ -15,33 +15,33 @@ def mouse_callback(event, x, y, flags, param):
         hsv_value = hsv[y, x]
         print("HSV value at ({}, {}): {}".format(x, y, hsv_value))
 
-        # Define the HSV value range
+        #  The HSV value range
         hmin, smin, vmin = np.maximum(hsv_value - np.array([40, 155, 155]), 0)
         hmax, smax, vmax = np.minimum(hsv_value + np.array([40, 100, 100]), [180, 255, 255])
 
-        # Print the HSV value range
+        # Print the HSV value 
         hsv_values = {'hmin': hmin, 'smin': smin, 'vmin': vmin, 'hmax': hmax, 'smax': smax, 'vmax': vmax}
         print("HSV value range: {}".format(hsv_values))
 
-# Register the mouse callback function
+# Register the callback function
 cv2.namedWindow('Frame')
 cv2.setMouseCallback('Frame', mouse_callback)
 
-# Loop over frames from the video stream
+# Loops over frames 
 while True:
-    # Read a frame from the video stream
+    # Reads a frame 
     ret, frame = cap.read()
 
-    # Display the frame
+    # Displays the frame
     cv2.imshow('Frame', frame)
 
-    # Wait
+    
     key = cv2.waitKey(1) & 0xFF
 
-    # If the 'q' key is pressed, break from the loop
+    # If q is pressed, break from the loop
     if key == ord('q'):
         break
 
-# Release the VideoCapture object and close all windows
+# Close program
 cap.release()
 cv2.destroyAllWindows()
