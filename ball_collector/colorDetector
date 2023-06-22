@@ -1,10 +1,10 @@
 import cv2
 import numpy as np
 
-# Define the HSV values 
+# Define the HSV structure that we need 
 hsv_values = {'hmin': 140, 'smin': 100, 'vmin': 100, 'hmax': 180, 'smax': 255, 'vmax': 255}
 
-# Create a VideoCapture to read from the camera
+
 cap = cv2.VideoCapture(0)
 
 # Callback function for mouse click
@@ -23,11 +23,11 @@ def mouse_callback(event, x, y, flags, param):
         hsv_values = {'hmin': hmin, 'smin': smin, 'vmin': vmin, 'hmax': hmax, 'smax': smax, 'vmax': vmax}
         print("HSV value range: {}".format(hsv_values))
 
-# Register the callback function
+
 cv2.namedWindow('Frame')
 cv2.setMouseCallback('Frame', mouse_callback)
 
-# Loops over frames 
+
 while True:
     # Reads a frame 
     ret, frame = cap.read()
@@ -42,6 +42,6 @@ while True:
     if key == ord('q'):
         break
 
-# Close program
+
 cap.release()
 cv2.destroyAllWindows()
